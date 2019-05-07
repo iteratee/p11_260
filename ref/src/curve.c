@@ -381,6 +381,7 @@ void extended_readd_wide_extended(
 
   mul_wide(&result->x, &e, &f);
   mul_wide(&result->y, &g, &h);
+  mul_wide(&result->t, &e, &h);
   mul_wide(&result->z, &f, &g);
 }
 

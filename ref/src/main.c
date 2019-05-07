@@ -26,13 +26,13 @@ static void print12_narrow(int32_t x[12]) {
   printf("\n");
 }
 
-void print10_narrow(int32_t x[10]) {
-  printf("[");
+void print_narrow_reduced(const residue_narrow_reduced_t *x) {
+  printf("{");
   for (int i = 0; i < 10; ++i) {
-    printf(" %#x,", x[i]);
+    printf(" %#x,", x->limbs[i]);
     // printf("x[%d]: %d\n", i, x[i]);
   }
-  printf(" ]");
+  printf("}");
   printf("\n");
 }
 
@@ -44,6 +44,43 @@ static void print_scalar(scalar_t *x) {
   }
   printf(" ]");
   printf("\n");
+}
+
+static void print_affine_readd_narrow_reduced(
+    const extended_affine_pt_readd_narrow_reduced_t *x) {
+  printf("{\n");
+  //printf(".x = ");
+  //print_narrow_reduced(&x->x);
+  //printf(",\n");
+  //printf(".dt = ");
+  //print_narrow_reduced(&x->dt);
+  //printf(",\n");
+  printf(".y = ");
+  print_narrow_reduced(&x->y);
+  printf(",\n");
+  printf("}\n");
+}
+
+static void print_sabs_single_comb(
+  const sabs_single_comb_t *comb) {
+  printf("{\n");
+  printf(".table = {\n");
+  for (int i = 0; i < COMB_TABLE_SIZE; ++i) {
+    print_affine_readd_narrow_reduced(&comb->table[i]);
+    printf(",\n");
+  }
+  printf("},\n}");
+}
+
+static void print_sabs_comb_set(
+  const sabs_comb_set_t *combs) {
+  printf("{\n");
+  printf(".combs = {\n");
+  for (int i = 0; i < COMB_COUNT; ++i) {
+    print_sabs_single_comb(&combs->combs[i]);
+    printf(",\n");
+  }
+  printf("},\n}");
 }
 
 int main(int _argc, char **argv) {
@@ -476,20 +513,161 @@ int main(int _argc, char **argv) {
     },
   };
 
+  affine_pt_narrow_reduced_t expected_everything1 = {
+    .x = {
+      .limbs = {
+        0x0e35d45, 0x038f90c, 0x0283483, 0x01ee50a, 0x1e364f9,
+        0x362414c, 0x156b1ed, 0x006fff6, 0x271f9ed, 0x0ffa45d,
+      },
+    },
+    .y = {
+      .limbs = {
+        0x156ae67, 0x27941ab, 0x19a3000, 0x3572ab5, 0x2b90ce3,
+        0x136156c, 0x0727496, 0x0edae82, 0x0fa5dfd, 0x16f293c,
+      },
+    },
+  };
+
+  affine_pt_narrow_reduced_t expected_everything2 = {
+    .x = {
+      .limbs = {
+        0x37fcb1b, 0x16004b9, 0x1d18743, 0x0bce648, 0x0d78db6,
+        0x35b1d65, 0x23bb620, 0x2fbc323, 0x1a9a586, 0x3b22577,
+      },
+    },
+    .y = {
+      .limbs = {
+        0x082fb15, 0x03487d6, 0x3d1c2c9, 0x2c9e7ad, 0x187be10,
+        0x2e9b6ba, 0x15b8f89, 0x243ae4c, 0x328bb11, 0x00b12a9,
+      },
+    },
+  };
+
+
+  affine_pt_narrow_reduced_t expected_everything3 = {
+    .x = {
+      .limbs = {
+        0x3e79b25, 0x2ca71b7, 0x2b2ea3c, 0x0de7ac4, 0x3026d10,
+        0x2bce79e, 0x1153866, 0x03e5a80, 0x22b9a37, 0x03e9c59,
+      },
+    },
+    .y = {
+      .limbs = {
+        0x20100d6, 0x2330974, 0x3402585, 0x172cfd6, 0x275a21c,
+        0x213e87c, 0x29989f2, 0x155e437, 0x096a378, 0x3a674eb,
+      },
+    },
+  };
+
+  affine_pt_narrow_reduced_t expected_gray_code_end0 = {
+    .x = {
+      .limbs = {
+        0x14dd884, 0x12c9e33, 0x2d42122, 0x26f0b14, 0x1b9ea17,
+        0x3779e94, 0x2562a88, 0x0be34f0, 0x192ead9, 0x089ec45,
+      },
+    },
+    .y = {
+      .limbs = {
+        0x1de5221, 0x172f820, 0x28c1b33, 0x08003c6, 0x0e65926,
+        0x188cd49, 0x3bb39fd, 0x1b9d8d7, 0x03d5020, 0x045742b,
+      },
+    },
+  };
+
+  affine_pt_narrow_reduced_t expected_gray_code_end1 = {
+    .x = {
+      .limbs = {
+        0x1d1cf29, 0x2e289d7, 0x1a83709, 0x2252d11, 0x3d6411c,
+        0x3fd73ad, 0x2737d9c, 0x2ca9eba, 0x058f290, 0x3879a7c,
+      },
+    },
+    .y = {
+      .limbs = {
+        0x357399d, 0x0276752, 0x0d5199f, 0x1bbd3a0, 0x39044f1,
+        0x0c5e83a, 0x1a99cdd, 0x0dcb61f, 0x35b7272, 0x1184cff,
+      },
+    },
+  };
+
+  affine_pt_narrow_reduced_t expected_gray_code_end2 = {
+    .x = {
+      .limbs = {
+        0x1ea3c19, 0x081dc9e, 0x1a0b337, 0x1d7f3f4, 0x295a0aa,
+        0x1ebff45, 0x0956bf0, 0x17aae80, 0x05d8632, 0x3082c9a,
+      },
+    },
+    .y = {
+      .limbs = {
+        0x22ad91f, 0x1ffcc65, 0x37b4f5c, 0x29c51ab, 0x3f9bd02,
+        0x296aaf9, 0x2a58b82, 0x2c54e16, 0x2a7672c, 0x21486e2,
+      },
+    },
+  };
+
+  affine_pt_narrow_reduced_t expected_gray_code_end3 = {
+    .x = {
+      .limbs = {
+        0x06b9c9d, 0x3d00674, 0x10a73fc, 0x30fda83, 0x139185c,
+        0x043e082, 0x3c67915, 0x208192a, 0x025e451, 0x258a566,
+      },
+    },
+    .y = {
+      .limbs = {
+        0x3d2a04f, 0x1314c36, 0x131c7a3, 0x1882ef3, 0x1a0a5e8,
+        0x1919356, 0x0a5616a, 0x1eea31d, 0x2c216b3, 0x18ba4aa,
+      },
+    },
+  };
+
   sabs_comb_set_t computed_base_comb;
   compute_comb_set(&computed_base_comb, &B);
   for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    if (computed_base_comb.combs[0].table[COMB_TABLE_SIZE - 1].x.limbs[i] ==
-      expected_everything0.x.limbs[i]) {
-      printf("expected.\n");
-    } else {
-      printf("unexpected.\n");
-    }
-    if (computed_base_comb.combs[0].table[COMB_TABLE_SIZE - 1].y.limbs[i] ==
-      expected_everything0.y.limbs[i]) {
-      printf("expected.\n");
-    } else {
-      printf("unexpected.\n");
-    }
+    assert(computed_base_comb.combs[0].table[COMB_TABLE_SIZE - 1].x.limbs[i] ==
+      expected_everything0.x.limbs[i]);
+    assert(computed_base_comb.combs[0].table[COMB_TABLE_SIZE - 1].y.limbs[i] ==
+      expected_everything0.y.limbs[i]);
+    assert(computed_base_comb.combs[1].table[COMB_TABLE_SIZE - 1].x.limbs[i] ==
+      expected_everything1.x.limbs[i]);
+    assert(computed_base_comb.combs[1].table[COMB_TABLE_SIZE - 1].y.limbs[i] ==
+      expected_everything1.y.limbs[i]);
+    assert(computed_base_comb.combs[2].table[COMB_TABLE_SIZE - 1].x.limbs[i] ==
+      expected_everything2.x.limbs[i]);
+    assert(computed_base_comb.combs[2].table[COMB_TABLE_SIZE - 1].y.limbs[i] ==
+      expected_everything2.y.limbs[i]);
+    assert(computed_base_comb.combs[3].table[COMB_TABLE_SIZE - 1].x.limbs[i] ==
+      expected_everything3.x.limbs[i]);
+    assert(computed_base_comb.combs[3].table[COMB_TABLE_SIZE - 1].y.limbs[i] ==
+      expected_everything3.y.limbs[i]);
+  }
+
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    assert(computed_base_comb.combs[0].table[7].x.limbs[i] ==
+      expected_gray_code_end0.x.limbs[i]);
+    assert(computed_base_comb.combs[0].table[7].y.limbs[i] ==
+      expected_gray_code_end0.y.limbs[i]);
+    assert(computed_base_comb.combs[1].table[7].x.limbs[i] ==
+      expected_gray_code_end1.x.limbs[i]);
+    assert(computed_base_comb.combs[1].table[7].y.limbs[i] ==
+      expected_gray_code_end1.y.limbs[i]);
+    assert(computed_base_comb.combs[2].table[7].x.limbs[i] ==
+      expected_gray_code_end2.x.limbs[i]);
+    assert(computed_base_comb.combs[2].table[7].y.limbs[i] ==
+      expected_gray_code_end2.y.limbs[i]);
+    assert(computed_base_comb.combs[3].table[7].x.limbs[i] ==
+      expected_gray_code_end3.x.limbs[i]);
+    assert(computed_base_comb.combs[3].table[7].y.limbs[i] ==
+      expected_gray_code_end3.y.limbs[i]);
+  }
+
+  printf("a comb set is %lu bytes.\n", sizeof(computed_base_comb));
+  for (int i = 0; i<100000; ++i) {
+    scalar_comb_multiply(&result_pt, &base_comb, &mult_scalar);
+  }
+  {
+    residue_wide_t tmp;
+    mul_wide(&tmp, &expected_scalar_mult.x, &result_pt.z);
+    assert(equal_wide(&tmp, &result_pt.x));
+    mul_wide(&tmp, &expected_scalar_mult.y, &result_pt.z);
+    assert(equal_wide(&tmp, &result_pt.y));
   }
 }

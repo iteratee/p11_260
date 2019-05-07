@@ -10,24 +10,32 @@
 #define COMB_SEPARATION 13
 #define COMB_LOOKUP_MASK 0xf
 
+// A single comb table.
 typedef struct sabs_single_comb {
   extended_affine_pt_readd_narrow_reduced_t table[COMB_TABLE_SIZE];
 } sabs_single_comb_t;
 
+// A single wide comb table. Used in computing a narrow comb table.
 typedef struct sabs_single_comb_wide {
   projective_pt_wide_t table[COMB_TABLE_SIZE];
 } sabs_single_comb_wide_t;
 
+// A comb set. There is a precomputed comb set for the base point, but for
+// verifications of several signatures from the same key, it would be
+// advantageous to precompute a comb.
 typedef struct sabs_comb_set {
   sabs_single_comb_t combs[COMB_COUNT];
 } sabs_comb_set_t;
 
+// An unreduced comb set. Used just to separate the logic of comb computation
+// from comb reduction.
 typedef struct sabs_comb_set_wide {
   sabs_single_comb_wide_t combs[COMB_COUNT];
 } sabs_comb_set_wide_t;
 
+// used for computing the entries in the comb table.
 typedef struct teeth_set {
-  extended_pt_readd_wide_t teeth[COMB_TEETH];
+  extended_pt_readd_wide_t teeth[COMB_TEETH - 1];
 } teeth_set_t;
 
 sabs_comb_set_t base_comb;
