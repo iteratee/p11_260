@@ -99,8 +99,8 @@ void affine_to_readd_narrow_reduced(
   extended_pt_readd_narrow_reduced_t *result,
   const affine_pt_narrow_reduced_t * __restrict x);
 
-void projective_to_readd_wide(
-  extended_pt_readd_wide_t *result, projective_pt_wide_t * __restrict x);
+void projective_to_extended_wide(
+  extended_pt_wide_t *result, projective_pt_wide_t * __restrict x);
 
 void extended_to_projective_wide(
   projective_pt_wide_t *result, const extended_pt_wide_t * __restrict x);
@@ -128,6 +128,10 @@ void projective_double_extended(
 
 void extended_double_extended(
   extended_pt_wide_t *result, const extended_pt_wide_t *x);
+
+void projective_add(
+  projective_pt_wide_t *result, const projective_pt_wide_t * __restrict x1,
+  const projective_pt_wide_t * __restrict x2);
 
 void extended_add(
   projective_pt_wide_t *result, const extended_pt_wide_t * __restrict x,
@@ -166,4 +170,7 @@ void extended_readd_wide_extended(
 void scalar_multiply(
   projective_pt_wide_t *result, const affine_pt_narrow_reduced_t * __restrict x,
   const scalar_t * __restrict n);
+
+int point_decompress(
+  affine_pt_narrow_reduced_t *result, residue_narrow_reduced_t *y, int low_bit);
 #endif

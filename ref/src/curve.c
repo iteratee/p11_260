@@ -302,6 +302,38 @@ void extended_double_extended(
   mul_wide(&result->z, &f, &g);
 }
 
+void projective_add(
+  projective_pt_wide_t *result, const projective_pt_wide_t * __restrict x1,
+  const projective_pt_wide_t * __restrict x2) {
+
+  residue_wide_t x1_plus_y1, x2_plus_y2;
+  residue_wide_t a, b, c, d, e, e_temp, f, g, t1, t2;
+
+  mul_wide(&a, &x1->z, &x2->z);
+  square_wide(&b, &a);
+  mul_wide(&c, &x1->x, &x2->x);
+  mul_wide(&d, &x1->y, &x2->y);
+  mul_wide_const(&e_temp, &c, D);
+  mul_wide(&e, &e_temp, &d);
+
+  sub_wide(&f, &b, &e);
+  add_wide(&g, &b, &e);
+  add_wide(&x1_plus_y1, &x1->x, &x1->y);
+  add_wide(&x2_plus_y2, &x2->x, &x2->y);
+
+  mul_wide(&t1, &x1_plus_y1, &x2_plus_y2);
+  sub_wide(&t2, &t1, &c);
+  sub_wide(&t1, &t2, &d);
+  mul_wide(&t2, &t1, &f);
+  mul_wide(&result->x, &t2, &a);
+
+  sub_wide(&t1, &d, &c);
+  mul_wide(&t2, &t1, &g);
+  mul_wide(&result->y, &t2, &a);
+
+  mul_wide(&result->z, &f, &g);
+}
+
 void extended_add(
   projective_pt_wide_t *result, const extended_pt_wide_t * __restrict x1,
   const extended_pt_wide_t * __restrict x2) {
@@ -733,4 +765,40 @@ void scalar_multiply(
   explicit_bzero(table, sizeof(table));
   explicit_bzero(&temp, sizeof(temp));
   explicit_bzero(&temp_ext, sizeof(temp_ext));
+}
+
+int point_decompress(
+  affine_pt_narrow_reduced_t *result,
+  residue_narrow_reduced_t *y, int low_bit) {
+
+  residue_narrow_t y_n;
+
+  residue_wide_t u;
+  residue_wide_t v;
+
+  residue_wide_t y2;
+  residue_narrow_t temp;
+  residue_wide_t x_wide;
+
+  unnarrow_reduce(&y_n, y);
+  square_narrow(&y2, &y_n);
+  copy_narrow_reduced(&result->y, y);
+
+  sub_wide(&u, &one_wide, &y2);
+  mul_wide_const(&y2, &y2, D);
+  sub_wide(&v, &one_wide, &y2);
+
+  if (sqrt_inv_wide(&x_wide, &u, &v)) {
+    narrow(&temp, &x_wide);
+    narrow_partial_complete(&result->x, &temp);
+
+    int x_is_odd = is_odd(&result->x);
+    if ((x_is_odd && !low_bit) || (low_bit && !x_is_odd)) {
+      negate_narrow_reduced(&result->x, &result->x);
+    }
+
+    return 1;
+  }
+
+  return 0;
 }

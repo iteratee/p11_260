@@ -16,6 +16,7 @@ typedef struct scalar_hash {
 #define HASH_LIMBS 16
 #define SCALAR_LIMBS 9
 #define SCALAR_BITS 258
+#define SCALAR_BYTES 33
 #define SCALAR_LIMB_BITS 32
 #define SCALAR_LAST_LIMB_BITS 2
 #define SCALAR_LAST_LIMB_MASK 0x3

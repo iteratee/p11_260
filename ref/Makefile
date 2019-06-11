@@ -16,9 +16,9 @@ RCOMPILE_FLAGS = -O2 -D DEBUG
 # Additional debug-specific flags
 DCOMPILE_FLAGS = -g -D DEBUG
 # Add additional include paths
-INCLUDES = -Iinclude
+INCLUDES = -Iinclude -isystem /usr/include/bsd -DLIBBSD_OVERLAY
 # General linker settings
-LINK_FLAGS =
+LINK_FLAGS = -lbsd -lb2
 # Additional release-specific linker settings
 RLINK_FLAGS =
 # Additional debug-specific linker settings

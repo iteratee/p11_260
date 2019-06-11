@@ -1,6 +1,15 @@
 #include <stdint.h>
 #include "f11_260.h"
 
+residue_wide_t zero_wide = {0};
+residue_wide_t one_wide = {
+  .limbs = {1},
+};
+residue_narrow_t zero_narrow = {0};
+residue_narrow_t one_narrow = {
+  .limbs = {1},
+};
+
 // Shrink to 32 bits. Assumes reduction has already occurred, and wide storage
 // is being used for vector compatibility.
 void narrow(residue_narrow_t *result, const residue_wide_t * __restrict w) {
@@ -114,6 +123,14 @@ void narrow_partial_complete(
   }
 }
 
+int is_odd(residue_narrow_reduced_t *x) {
+  int result = 0;
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    result ^= x->limbs[i] & 0x1;
+  }
+  return result;
+}
+
 // Produce a 32-bit entry with 11 limbs
 void unnarrow_reduce(
   residue_narrow_t *result, const residue_narrow_reduced_t * __restrict x) {
@@ -124,11 +141,21 @@ void unnarrow_reduce(
   }
 }
 
-// Copy a 64-bit residue
+// Copy a 12x64-bit residue
 void copy_wide(
   residue_wide_t *result, const residue_wide_t * __restrict x) {
 
   for (int i = 0; i < NLIMBS; ++i) {
+    result->limbs[i] = x->limbs[i];
+  }
+}
+
+// Copy a 10x32-bit residue
+void copy_narrow_reduced(
+  residue_narrow_reduced_t *result,
+  const residue_narrow_reduced_t * __restrict x) {
+
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
     result->limbs[i] = x->limbs[i];
   }
 }
@@ -148,6 +175,23 @@ void sub_wide(
 
   for (int i = 0; i < NLIMBS; ++i) {
     result->limbs[i] = x->limbs[i] - y->limbs[i];
+  }
+}
+
+// negate a 12x64-bit residue.
+void negate_wide(residue_wide_t *result, const residue_wide_t *x) {
+
+  for (int i = 0; i < NLIMBS; ++i) {
+    result->limbs[i] = -(x->limbs[i]);
+  }
+}
+
+// negate a 10x32-bit residue.
+void negate_narrow_reduced(
+  residue_narrow_reduced_t *result, const residue_narrow_reduced_t *x) {
+
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    result->limbs[i] = -(x->limbs[i]);
   }
 }
 
@@ -359,8 +403,7 @@ static void print_wide(const residue_wide_t *x) {
 // T/2. They should therefore resolve all carries in a single step, and all be
 // equal to the same value. Some other value may not reduce completely, but this
 // is fine, we will know it is not zero.
-int equal_wide(
-  const residue_wide_t * __restrict x, const residue_wide_t * __restrict y) {
+int equal_wide(const residue_wide_t *x, const residue_wide_t *y) {
   residue_wide_t temp;
 
   sub_wide(&temp, x, y);
@@ -373,8 +416,20 @@ int equal_wide(
 
   delta = temp.limbs[0];
   int result = 0;
-  for (int i = 1; i <NLIMBS; ++i) {
+  for (int i = 1; i < NLIMBS; ++i) {
     result |= (temp.limbs[i] ^ delta);
+  }
+
+  return !result;
+}
+
+int equal_narrow_reduced(
+  const residue_narrow_reduced_t * x, const residue_narrow_reduced_t * y) {
+  residue_narrow_reduced_t temp;
+
+  int result = 0;
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    result |= (x->limbs[i] ^ y->limbs[i]);
   }
 
   return !result;
@@ -558,10 +613,14 @@ void decode(residue_narrow_reduced_t *out, const uint8_t *in) {
     shift += 8;
     bits_remaining -= 8;
     if (shift >= TBITS) {
-      out->limbs[i] = collect & TMASK;
-      collect >>= 26;
-      shift -= 26;
-      ++i;
+      if (bits_remaining > 0) {
+        out->limbs[i] = collect & TMASK;
+        collect >>= 26;
+        shift -= 26;
+        ++i;
+      } else {
+        out->limbs[i] = collect;
+      }
     }
   }
 }

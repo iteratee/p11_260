@@ -135,7 +135,6 @@ void mont_reduce_hash_mod_l(
     result->limbs[i] = accum[i];
   }
   explicit_bzero(accum, sizeof(accum));
-  printf("accum is sized: %#lx\n", sizeof(accum));
 }
 
 void reduce_hash_mod_l(scalar_t *result, const scalar_hash_t * __restrict x) {

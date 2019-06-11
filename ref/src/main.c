@@ -1,10 +1,12 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "f11_260.h"
-#include "scalar.h"
-#include "curve.h"
 #include "comb.h"
+#include "curve.h"
+#include "f11_260.h"
+#include "gen.h"
+#include "scalar.h"
+#include "sign.h"
 
 static void print12(int64_t x[12]) {
   printf("[");
@@ -487,17 +489,6 @@ int main(int _argc, char **argv) {
     assert(equal_wide(&tmp, &result_pt.y));
   }
 
-  int val = 0xf;
-  for(int i = 1; i < 16; ++i) {
-    for (int j = 2; j <= 16; j <<= 1) {
-      if ((i & (j - 1)) == (j >> 1)) {
-        val ^= (j >> 1);
-        break;
-      }
-    }
-    printf("val is: %#x\n", val);
-  }
-
   affine_pt_narrow_reduced_t expected_everything0 = {
     .x = {
       .limbs = {
@@ -659,15 +650,46 @@ int main(int _argc, char **argv) {
       expected_gray_code_end3.y.limbs[i]);
   }
 
-  printf("a comb set is %lu bytes.\n", sizeof(computed_base_comb));
-  for (int i = 0; i<100000; ++i) {
+  #if 0
+  for (int i = 0; i<1; ++i) {
     scalar_comb_multiply(&result_pt, &base_comb, &mult_scalar);
   }
+  #endif
   {
     residue_wide_t tmp;
     mul_wide(&tmp, &expected_scalar_mult.x, &result_pt.z);
     assert(equal_wide(&tmp, &result_pt.x));
     mul_wide(&tmp, &expected_scalar_mult.y, &result_pt.z);
     assert(equal_wide(&tmp, &result_pt.y));
+  }
+  #if 0
+  for (int i = 0; i<100000; ++i) {
+    scalar_t priv_key;
+    affine_pt_narrow_reduced_t pub_key;
+    gen_key(&priv_key, &pub_key);
+  }
+  #endif
+  {
+    const uint8_t *msg = (uint8_t *) "Hello World!";
+    const size_t msglen = 13;
+    scalar_t priv_key;
+    affine_pt_narrow_reduced_t pub_key;
+    gen_key(&priv_key, &pub_key);
+    residue_narrow_reduced_t compressed_key;
+    copy_narrow_reduced(&compressed_key, &pub_key.y);
+    compressed_key.limbs[NLIMBS_REDUCED - 1] |=
+        is_odd(&pub_key.x) << (TBITS);
+    uint8_t pubkey_buf[RESIDUE_LENGTH_BYTES];
+    encode(pubkey_buf, &compressed_key);
+    signature_t result;
+    sign(&result, &priv_key, pubkey_buf, msg, msglen);
+    uint8_t y_buf[RESIDUE_LENGTH_BYTES];
+    encode(y_buf, &result.y);
+    assert(verify(&result, y_buf, pubkey_buf, &pub_key, msg, msglen));
+    assert(!verify(&result, y_buf, pubkey_buf, &pub_key, msg, msglen-1));
+    printf("sig:\nr:\n");
+    print_narrow_reduced(&result.y);
+    printf("s:\n");
+    print_scalar(&result.s);
   }
 }

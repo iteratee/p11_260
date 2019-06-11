@@ -10,6 +10,7 @@
 #define TBITS 26
 #define TMASK ((1 << 26) - 1)
 #define T_CBITS 4
+#define RESIDUE_LENGTH_BYTES 33
 
 // Reduced to 10 limbs. For smaller tables.
 typedef struct residue_narrow_reduced {
@@ -26,6 +27,11 @@ typedef struct residue_narrow {
 typedef struct residue_wide {
   int64_t limbs[12];
 } residue_wide_t;
+
+residue_wide_t zero_wide;
+residue_wide_t one_wide;
+residue_narrow_t zero_narrow;
+residue_narrow_t one_narrow;
 
 // Shrink to 32 bits. Assumes reduction has already occurred, and wide storage
 // is being used for vector compatibility.
@@ -48,6 +54,8 @@ void narrow_complete(
 void narrow_partial_complete(
   residue_narrow_reduced_t *result, const residue_narrow_t * __restrict w);
 
+int is_odd(residue_narrow_reduced_t *x);
+
 // Produce a 32-bit entry with 11 limbs
 void unnarrow_reduce(
   residue_narrow_t *result, const residue_narrow_reduced_t * __restrict x);
@@ -60,10 +68,19 @@ void widen(
 void copy_wide(
   residue_wide_t *result, const residue_wide_t * __restrict x);
 
+void copy_narrow_reduced(
+  residue_narrow_reduced_t *result,
+  const residue_narrow_reduced_t * __restrict x);
+
 // Subtract 2 12x64-bit residues.
 void sub_wide(
   residue_wide_t *result, const residue_wide_t * __restrict x,
   const residue_wide_t * __restrict y);
+
+void negate_wide(residue_wide_t *result, const residue_wide_t *x);
+
+void negate_narrow_reduced(
+  residue_narrow_reduced_t *result, const residue_narrow_reduced_t *x);
 
 // Add 2 12x32-bit residues.
 void add_narrow(
@@ -134,7 +151,12 @@ int sqrt_inv_wide(
 // Returns true if x == y. Computes in constant time.
 int equal_wide(const residue_wide_t * x, const residue_wide_t * y);
 
+int equal_narrow_reduced(
+  const residue_narrow_reduced_t * x, const residue_narrow_reduced_t * y);
+
 void encode(uint8_t *out, const residue_narrow_reduced_t * __restrict x);
+void encode_compressed(
+  uint8_t *out, const residue_narrow_reduced_t * __restrict x, int is_odd);
 
 void decode(residue_narrow_reduced_t *out, const uint8_t *in);
 #endif
