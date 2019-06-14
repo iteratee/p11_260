@@ -12,19 +12,22 @@
 #define T_CBITS 4
 #define RESIDUE_LENGTH_BYTES 33
 
-// Reduced to 10 limbs. For smaller tables.
+// Reduced to 10 limbs. For final results.
 typedef struct residue_narrow_reduced {
+  __attribute__((__aligned__(8)))
   int32_t limbs[10];
 } residue_narrow_reduced_t;
 
 // 11 limbs. Limb 10 is placed in slot 0, and slot 11.
 typedef struct residue_narrow {
+  __attribute__((__aligned__(16)))
   int32_t limbs[12];
 } residue_narrow_t;
 
 // 11 limbs. Limb 10 is placed in slot 0 and slot 11. Wider for vector
 // compatibility.
 typedef struct residue_wide {
+  __attribute__((__aligned__(32)))
   int64_t limbs[12];
 } residue_wide_t;
 
@@ -37,7 +40,7 @@ residue_narrow_t one_narrow;
 // is being used for vector compatibility.
 void narrow(residue_narrow_t *result, const residue_wide_t * __restrict w);
 
-// Reduce to 10 limbs. Suitable for table entries.
+// Reduce to 10 limbs. Useful for debugging
 void narrow_reduce(
   residue_narrow_reduced_t *result, const residue_narrow_t * __restrict w);
 
@@ -57,8 +60,14 @@ void narrow_partial_complete(
 int is_odd(residue_narrow_reduced_t *x);
 
 // Produce a 32-bit entry with 11 limbs
-void unnarrow_reduce(
-  residue_narrow_t *result, const residue_narrow_reduced_t * __restrict x);
+static inline void unnarrow_reduce(
+  residue_narrow_t *result, const residue_narrow_reduced_t * __restrict x) {
+
+  result->limbs[0] = result->limbs[NLIMBS - 1] = 0;
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    result->limbs[i+1] = x->limbs[i];
+  }
+}
 
 // Produce a 64-bit residue
 void widen(
@@ -67,6 +76,10 @@ void widen(
 // Copy a 64-bit residue
 void copy_wide(
   residue_wide_t *result, const residue_wide_t * __restrict x);
+
+// Copy a 32-bit residue
+void copy_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x);
 
 void copy_narrow_reduced(
   residue_narrow_reduced_t *result,
@@ -79,8 +92,7 @@ void sub_wide(
 
 void negate_wide(residue_wide_t *result, const residue_wide_t *x);
 
-void negate_narrow_reduced(
-  residue_narrow_reduced_t *result, const residue_narrow_reduced_t *x);
+void negate_narrow(residue_narrow_t *result, const residue_narrow_t *x);
 
 // Add 2 12x32-bit residues.
 void add_narrow(
@@ -99,18 +111,18 @@ void double_wide(
 // Multiply two wide residues, and produce a wide result. The result is reduced
 // to 32 bits, but not narrowed for performance reasons.
 void mul_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y);
+  residue_wide_t *result, const residue_wide_t *x,
+  const residue_wide_t *y);
 // Multiply a wide residues by a narrow and produce a wide result. The result is
 // reduced to 32 bits, but not narrowed for performance reasons.
 void mul_wide_narrow(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_narrow_t * __restrict y);
+  residue_wide_t *result, const residue_wide_t *x,
+  const residue_narrow_t *y);
 // Multiply two narrow residues and produce a wide result. The result is reduced
 // to 32 bits, but not narrowed for performance reasons.
 void mul_narrow(
-  residue_wide_t *result, const residue_narrow_t * __restrict x,
-  const residue_narrow_t * __restrict y);
+  residue_wide_t *result, const residue_narrow_t *x,
+  const residue_narrow_t *y);
 
 // Multiply a wide residue by a constant.
 void mul_wide_const(
@@ -123,12 +135,12 @@ void mul_narrow_const(
 // Square a wide residue and produce a wide result. The result is reduced to 32
 // bits but not narrowed for performance reasons.
 void square_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x);
+  residue_wide_t *result, const residue_wide_t *x);
 
 // Square a narrow residue and produce a wide result. The result is reduced to
 // 32 bits but not narrowed for performance reasons.
 void square_narrow(
-  residue_wide_t *result, const residue_narrow_t * __restrict x);
+  residue_wide_t *result, const residue_narrow_t *x);
 
 // Approximately divide each coefficient by t. Carry the results.
 void reduce_step_narrow(

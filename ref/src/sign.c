@@ -65,7 +65,7 @@ void sign(signature_t *result, scalar_t *priv_key,
 
 int verify(
   const signature_t *sig, const uint8_t *r_bytes, const uint8_t *pub_key_bytes,
-  const affine_pt_narrow_reduced_t *pub_key_pt, const uint8_t *msg,
+  const affine_pt_narrow_t *pub_key_pt, const uint8_t *msg,
   size_t msg_len) {
 
   projective_pt_wide_t sB;
@@ -85,8 +85,8 @@ int verify(
   reduce_hash_mod_l(&hash_scalar, &scalar_large);
 
   // Can use non-const version for both of these.
-  scalar_comb_multiply(&sB, &base_comb, &sig->s);
-  scalar_multiply(&hA, pub_key_pt, &hash_scalar);
+  scalar_comb_multiply_unsafe(&sB, &base_comb, &sig->s);
+  scalar_multiply_unsafe(&hA, pub_key_pt, &hash_scalar);
   projective_add(&result_pt, &sB, &hA);
 
   // Everything below except the comparison should eventually be in helper
@@ -106,7 +106,28 @@ int verify(
   narrow(&temp_narrow, &result_pt.x);
   narrow_partial_complete(&temp_narrow_reduced, &temp_narrow);
   result_y.limbs[NLIMBS_REDUCED - 1] |=
-      is_odd(&temp_narrow_reduced) << (TBITS);
+      is_odd(&temp_narrow_reduced) << TBITS;
 
   return equal_narrow_reduced(&sig->y, &result_y);
+}
+
+void encode_sig(uint8_t *result, const signature_t *sig) {
+  residue_narrow_reduced_t pack;
+
+  memcpy(&pack, &sig->y, sizeof(residue_narrow_reduced_t));
+  // Save the upper two bits in the uppermost part of the 33rd byte
+  pack.limbs[NLIMBS_REDUCED - 1] |=
+    (sig->s.limbs[SCALAR_LIMBS - 1] & 0x3) << 28;
+  encode(result, &pack);
+  memcpy(result + RESIDUE_LENGTH_BYTES,
+         &sig->s, sizeof(uint32_t) * (SCALAR_LIMBS - 1));
+}
+
+void decode_sig(signature_t *result, const uint8_t *encoded_sig) {
+  decode(&result->y, encoded_sig);
+  result->s.limbs[SCALAR_LIMBS - 1] = result->y.limbs[NLIMBS_REDUCED - 1] >> 28;
+  // We leave an extra bit for the sign bit from compression.
+  result->y.limbs[NLIMBS_REDUCED - 1] &= ((1 << (TBITS + 1)) - 1);
+  memcpy(&result->s, encoded_sig + RESIDUE_LENGTH_BYTES,
+         sizeof(uint32_t) * (SCALAR_LIMBS - 1));
 }

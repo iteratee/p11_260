@@ -5,16 +5,16 @@
 #include "curve.h"
 #include "constant_time.h"
 
-const affine_pt_narrow_reduced_t B = {
+const affine_pt_narrow_t B = {
   .x = {
     .limbs = {
-      0x2862b8b, 0x0f08ed2, 0x06e65ee, 0x0c05991, 0x2b12b17,
-      0x0049432, 0x33a3707, 0x16e5186, 0x2947e71, 0x0ed9bab,
+      0, 0x2862b8b, 0x0f08ed2, 0x06e65ee, 0x0c05991, 0x2b12b17,
+      0x0049432, 0x33a3707, 0x16e5186, 0x2947e71, 0x0ed9bab, 0,
     },
   },
   .y = {
     .limbs = {
-      0x4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+      0x0, 0x4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     },
   },
 };
@@ -53,6 +53,27 @@ void copy_extended_pt_readd_wide(
   }
 }
 
+void copy_extended_pt_readd_narrow(
+  extended_pt_readd_narrow_t *result,
+  const extended_pt_readd_narrow_t *source) {
+  for(int i = 0; i < NLIMBS; ++i) {
+    result->x.limbs[i] = source->x.limbs[i];
+    result->y.limbs[i] = source->y.limbs[i];
+    result->dt.limbs[i] = source->dt.limbs[i];
+    result->z.limbs[i] = source->z.limbs[i];
+  }
+}
+
+void copy_extended_affine_pt_readd_narrow(
+  extended_affine_pt_readd_narrow_t *result,
+  const extended_affine_pt_readd_narrow_t *source) {
+  for(int i = 0; i < NLIMBS; ++i) {
+    result->x.limbs[i] = source->x.limbs[i];
+    result->y.limbs[i] = source->y.limbs[i];
+    result->dt.limbs[i] = source->dt.limbs[i];
+  }
+}
+
 void negate_extended_pt_readd_wide(
   extended_pt_readd_wide_t *result,
   const extended_pt_readd_wide_t *source) {
@@ -64,37 +85,100 @@ void negate_extended_pt_readd_wide(
   }
 }
 
-void affine_narrow_reduced_to_extended(
-  extended_pt_wide_t *result,
-  const affine_pt_narrow_reduced_t * __restrict x) {
-
-  for(int i = 0; i < NLIMBS_REDUCED; ++i) {
-    result->x.limbs[i+1] = x->x.limbs[i];
-    result->y.limbs[i+1] = x->y.limbs[i];
-    result->z.limbs[i+1] = 0;
+void negate_extended_affine_pt_readd_narrow(
+  extended_affine_pt_readd_narrow_t *result,
+  const extended_affine_pt_readd_narrow_t *source) {
+  for(int i = 0; i < NLIMBS; ++i) {
+    result->x.limbs[i] = -source->x.limbs[i];
+    result->dt.limbs[i] = -source->dt.limbs[i];
+    result->y.limbs[i] = source->y.limbs[i];
   }
-  result->x.limbs[0] = result->x.limbs[NLIMBS - 1] = 0;
-  result->y.limbs[0] = result->y.limbs[NLIMBS - 1] = 0;
-  result->z.limbs[0] = result->z.limbs[NLIMBS - 1] = 0;
+}
+
+void negate_extended_pt_readd_narrow(
+  extended_pt_readd_narrow_t *result,
+  const extended_pt_readd_narrow_t *source) {
+  for(int i = 0; i < NLIMBS; ++i) {
+    result->x.limbs[i] = -source->x.limbs[i];
+    result->dt.limbs[i] = -source->dt.limbs[i];
+    result->y.limbs[i] = source->y.limbs[i];
+    result->z.limbs[i] = source->z.limbs[i];
+  }
+}
+
+void affine_narrow_to_extended(
+  extended_pt_wide_t *result,
+  const affine_pt_narrow_t * __restrict x) {
+
+  for(int i = 0; i < NLIMBS; ++i) {
+    result->x.limbs[i] = x->x.limbs[i];
+    result->y.limbs[i] = x->y.limbs[i];
+    result->z.limbs[i] = 0;
+  }
   result->z.limbs[1] = 1;
   mul_wide(&result->t, &result->x, &result->y);
 }
 
 #include <stdio.h>
-static void print_wide(const residue_wide_t *x) {
+static void print_scalar(const scalar_t *x) {
   printf("[");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->limbs[i]);
+  for (int i = 0; i < SCALAR_LIMBS; ++i) {
+    printf(" %#x,", x->limbs[i]);
     // printf("x[%d]: %d\n", i, x[i]);
   }
   printf(" ]");
   printf("\n");
 }
 
-static void print_narrow(const residue_narrow_t *x) {
+static void print_narrow_reduced(
+  const char *label, const residue_narrow_reduced_t *x) {
+  printf("%s: [", label);
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    printf(" %#x,", x->limbs[i]);
+    // printf("x[%d]: %d\n", i, x[i]);
+  }
+  printf(" ]");
+  printf("\n");
+}
+
+static void print_narrow(
+  const char *label, const residue_narrow_t *x) {
+  residue_narrow_reduced_t x_nr;
+  narrow_reduce(&x_nr, x);
+  print_narrow_reduced(label, &x_nr);
+}
+
+static void print_as_narrow_reduced(
+  const char *label, const residue_wide_t *x) {
+  residue_narrow_t x_n;
+  narrow(&x_n, x);
+  print_narrow(label, &x_n);
+}
+
+static void print_projective_pt_wide(const projective_pt_wide_t *x) {
+  print_as_narrow_reduced("x", &x->x);
+  print_as_narrow_reduced("y", &x->y);
+  print_as_narrow_reduced("z", &x->z);
+}
+
+static void print_extended_pt_wide(const extended_pt_wide_t *x) {
+  print_as_narrow_reduced("x", &x->x);
+  print_as_narrow_reduced("y", &x->y);
+  print_as_narrow_reduced("t", &x->t);
+  print_as_narrow_reduced("z", &x->z);
+}
+
+static void print_readd(const extended_pt_readd_narrow_t *x) {
+  print_narrow("x", &x->x);
+  print_narrow("y", &x->y);
+  print_narrow("dt", &x->dt);
+  print_narrow("z", &x->z);
+}
+#include <stdio.h>
+static void print_wide(const residue_wide_t *x) {
   printf("[");
   for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#x,", x->limbs[i]);
+    printf(" %#lx,", x->limbs[i]);
     // printf("x[%d]: %d\n", i, x[i]);
   }
   printf(" ]");
@@ -110,52 +194,37 @@ void extended_to_projective_wide(
   }
 }
 
-void affine_to_readd_narrow_reduced(
-  extended_pt_readd_narrow_reduced_t *result,
-  const affine_pt_narrow_reduced_t * __restrict x) {
+void affine_to_readd_narrow(
+  extended_pt_readd_narrow_t *result,
+  const affine_pt_narrow_t * __restrict x) {
 
-  for(int i = 0; i < NLIMBS_REDUCED; ++i) {
+  for(int i = 0; i < NLIMBS; ++i) {
     result->x.limbs[i] = x->x.limbs[i];
     result->y.limbs[i] = x->y.limbs[i];
     result->z.limbs[i] = 0;
   }
-  result->z.limbs[0] = 1;
+  result->z.limbs[1] = 1;
 
   residue_wide_t xy;
   residue_wide_t dt_wide;
-  residue_narrow_t dt_narrow;
-  residue_narrow_t x_n, y_n;
-  unnarrow_reduce(&x_n, &x->x);
-  unnarrow_reduce(&y_n, &x->y);
-  mul_narrow(&xy, &x_n, &y_n);
+  mul_narrow(&xy, &x->x, &x->y);
   mul_wide_const(&dt_wide, &xy, D);
-  narrow(&dt_narrow, &dt_wide);
-  narrow_reduce(&result->dt, &dt_narrow);
+  narrow(&result->dt, &dt_wide);
 }
 
 void affine_to_readd_wide(
   extended_pt_readd_wide_t *result,
-  const affine_pt_narrow_reduced_t * __restrict x) {
+  const affine_pt_narrow_t * __restrict x) {
 
-  result->x.limbs[0] = 0;
-  result->y.limbs[0] = 0;
-  result->z.limbs[0] = 0;
-
-  result->x.limbs[NLIMBS - 1] = 0;
-  result->y.limbs[NLIMBS - 1] = 0;
-  result->z.limbs[NLIMBS - 1] = 0;
-  for(int i = 0; i < NLIMBS_REDUCED; ++i) {
-    result->x.limbs[i+1] = x->x.limbs[i];
-    result->y.limbs[i+1] = x->y.limbs[i];
-    result->z.limbs[i+1] = 0;
+  for(int i = 0; i < NLIMBS; ++i) {
+    result->x.limbs[i] = x->x.limbs[i];
+    result->y.limbs[i] = x->y.limbs[i];
+    result->z.limbs[i] = 0;
   }
   result->z.limbs[1] = 1;
 
   residue_wide_t xy;
-  residue_narrow_t x_n, y_n;
-  unnarrow_reduce(&x_n, &x->x);
-  unnarrow_reduce(&y_n, &x->y);
-  mul_narrow(&xy, &x_n, &y_n);
+  mul_narrow(&xy, &x->x, &x->y);
   mul_wide_const(&result->dt, &xy, D);
 }
 
@@ -173,18 +242,15 @@ void extended_to_readd_wide_neg(
 
 void affine_double(
   projective_pt_wide_t *result,
-  const affine_pt_narrow_reduced_t * __restrict x) {
-
-  residue_narrow_t x_pad, y_pad;
-  unnarrow_reduce(&x_pad, &x->x);
-  unnarrow_reduce(&y_pad, &x->y);
+  const affine_pt_narrow_t * __restrict x) {
 
   residue_narrow_t x_plus_y;
   residue_wide_t a, b, e, e_tmp, g, g_minus_2, h;
-  square_narrow(&a, &x_pad);
-  square_narrow(&b, &y_pad);
+  square_narrow(&a, &x->x);
+  square_narrow(&b, &x->y);
 
-  add_narrow(&x_plus_y, &x_pad, &y_pad);
+  add_narrow(&x_plus_y, &x->x, &x->y);
+
   square_narrow(&e, &x_plus_y);
   sub_wide(&e_tmp, &e, &a);
   sub_wide(&e, &e_tmp, &b);
@@ -202,18 +268,14 @@ void affine_double(
 }
 
 void affine_double_extended(
-  extended_pt_wide_t *result, const affine_pt_narrow_reduced_t * __restrict x) {
-
-  residue_narrow_t x_pad, y_pad;
-  unnarrow_reduce(&x_pad, &x->x);
-  unnarrow_reduce(&y_pad, &x->y);
+  extended_pt_wide_t *result, const affine_pt_narrow_t * __restrict x) {
 
   residue_narrow_t x_plus_y;
   residue_wide_t a, b, e, e_tmp, g, g_minus_2, h;
-  square_narrow(&a, &x_pad);
-  square_narrow(&b, &y_pad);
+  square_narrow(&a, &x->x);
+  square_narrow(&b, &x->y);
 
-  add_narrow(&x_plus_y, &x_pad, &y_pad);
+  add_narrow(&x_plus_y, &x->x, &x->y);
   square_narrow(&e, &x_plus_y);
   sub_wide(&e_tmp, &e, &a);
   sub_wide(&e, &e_tmp, &b);
@@ -236,12 +298,12 @@ void projective_double(
 
   residue_wide_t x_plus_y;
   residue_wide_t a, b, c, c_temp, e, e_tmp, f, g, h;
+  add_wide(&x_plus_y, &x->x, &x->y);
   square_wide(&a, &x->x);
   square_wide(&b, &x->y);
   square_wide(&c_temp, &x->z);
   double_wide(&c, &c_temp);
 
-  add_wide(&x_plus_y, &x->x, &x->y);
   square_wide(&e, &x_plus_y);
   sub_wide(&e_tmp, &e, &a);
   sub_wide(&e, &e_tmp, &b);
@@ -259,12 +321,12 @@ void projective_double_extended(
 
   residue_wide_t x_plus_y;
   residue_wide_t a, b, c, c_temp, e, e_tmp, f, g, h;
+  add_wide(&x_plus_y, &x->x, &x->y);
   square_wide(&a, &x->x);
   square_wide(&b, &x->y);
   square_wide(&c_temp, &x->z);
   double_wide(&c, &c_temp);
 
-  add_wide(&x_plus_y, &x->x, &x->y);
   square_wide(&e, &x_plus_y);
   sub_wide(&e_tmp, &e, &a);
   sub_wide(&e, &e_tmp, &b);
@@ -283,12 +345,12 @@ void extended_double_extended(
 
   residue_wide_t x_plus_y;
   residue_wide_t a, b, c, c_temp, e, e_tmp, f, g, h;
+  add_wide(&x_plus_y, &x->x, &x->y);
   square_wide(&a, &x->x);
   square_wide(&b, &x->y);
   square_wide(&c_temp, &x->z);
   double_wide(&c, &c_temp);
 
-  add_wide(&x_plus_y, &x->x, &x->y);
   square_wide(&e, &x_plus_y);
   sub_wide(&e_tmp, &e, &a);
   sub_wide(&e, &e_tmp, &b);
@@ -297,9 +359,9 @@ void extended_double_extended(
   sub_wide(&h, &a, &b);
 
   mul_wide(&result->x, &e, &f);
+  mul_wide(&result->z, &f, &g);
   mul_wide(&result->y, &g, &h);
   mul_wide(&result->t, &e, &h);
-  mul_wide(&result->z, &f, &g);
 }
 
 void projective_add(
@@ -357,8 +419,8 @@ void extended_add(
   sub_wide(&h, &b, &a);
 
   mul_wide(&result->x, &e, &f);
-  mul_wide(&result->y, &g, &h);
   mul_wide(&result->z, &f, &g);
+  mul_wide(&result->y, &g, &h);
 }
 
 void extended_add_extended(
@@ -384,9 +446,9 @@ void extended_add_extended(
   sub_wide(&h, &b, &a);
 
   mul_wide(&result->x, &e, &f);
+  mul_wide(&result->z, &f, &g);
   mul_wide(&result->y, &g, &h);
   mul_wide(&result->t, &e, &h);
-  mul_wide(&result->z, &f, &g);
 }
 
 void extended_readd_wide_extended(
@@ -412,9 +474,9 @@ void extended_readd_wide_extended(
   sub_wide(&h, &b, &a);
 
   mul_wide(&result->x, &e, &f);
+  mul_wide(&result->z, &f, &g);
   mul_wide(&result->y, &g, &h);
   mul_wide(&result->t, &e, &h);
-  mul_wide(&result->z, &f, &g);
 }
 
 void extended_readd_narrow_extended(
@@ -440,9 +502,9 @@ void extended_readd_narrow_extended(
   sub_wide(&h, &b, &a);
 
   mul_wide(&result->x, &e, &f);
+  mul_wide(&result->z, &f, &g);
   mul_wide(&result->y, &g, &h);
   mul_wide(&result->t, &e, &h);
-  mul_wide(&result->z, &f, &g);
 }
 
 void extended_readd_narrow(
@@ -468,8 +530,8 @@ void extended_readd_narrow(
   sub_wide(&h, &b, &a);
 
   mul_wide(&result->x, &e, &f);
-  mul_wide(&result->y, &g, &h);
   mul_wide(&result->z, &f, &g);
+  mul_wide(&result->y, &g, &h);
 }
 
 void extended_readd_affine_narrow_extended(
@@ -494,37 +556,27 @@ void extended_readd_affine_narrow_extended(
   sub_wide(&h, &b, &a);
 
   mul_wide(&result->x, &e, &f);
+  mul_wide(&result->z, &f, &g);
   mul_wide(&result->y, &g, &h);
   mul_wide(&result->t, &e, &h);
-  mul_wide(&result->z, &f, &g);
 }
 
-void extended_readd_readd_narrow_reduce(
-  extended_pt_readd_narrow_reduced_t *result,
+void extended_readd_readd_narrow(
+  extended_pt_readd_narrow_t *result,
   const extended_pt_wide_t * __restrict x1,
-  const extended_pt_readd_narrow_reduced_t * __restrict x2) {
+  const extended_pt_readd_narrow_t * __restrict x2) {
 
-  residue_narrow_t x2_narrow;
-  residue_narrow_t y2_narrow;
-  residue_narrow_t dt2_narrow;
-  residue_narrow_t z2_narrow;
   residue_wide_t x1_plus_y1;
   residue_narrow_t x2_plus_y2;
   residue_wide_t a, b, c, d, e, e_temp, f, g, h, x3, y3, t3, dt3, z3;
-  residue_narrow_t x3_narrow, y3_narrow, dt3_narrow, z3_narrow;
 
-  unnarrow_reduce(&x2_narrow, &x2->x);
-  unnarrow_reduce(&y2_narrow, &x2->y);
-  unnarrow_reduce(&dt2_narrow, &x2->dt);
-  unnarrow_reduce(&z2_narrow, &x2->z);
-
-  mul_wide_narrow(&a, &x1->x, &x2_narrow);
-  mul_wide_narrow(&b, &x1->y, &y2_narrow);
-  mul_wide_narrow(&c, &x1->t, &dt2_narrow);
-  mul_wide_narrow(&d, &x1->z, &z2_narrow);
+  mul_wide_narrow(&a, &x1->x, &x2->x);
+  mul_wide_narrow(&b, &x1->y, &x2->y);
+  mul_wide_narrow(&c, &x1->t, &x2->dt);
+  mul_wide_narrow(&d, &x1->z, &x2->z);
 
   add_wide(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2_narrow, &y2_narrow);
+  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
   mul_wide_narrow(&e, &x1_plus_y1, &x2_plus_y2);
   sub_wide(&e_temp, &e, &a);
   sub_wide(&e, &e_temp, &b);
@@ -533,20 +585,15 @@ void extended_readd_readd_narrow_reduce(
   sub_wide(&h, &b, &a);
 
   mul_wide(&x3, &e, &f);
+  mul_wide(&z3, &f, &g);
   mul_wide(&y3, &g, &h);
   mul_wide(&t3, &e, &h);
+
+  narrow(&result->x, &x3);
+  narrow(&result->y, &y3);
   mul_wide_const(&dt3, &t3, D);
-  mul_wide(&z3, &f, &g);
-
-  narrow(&x3_narrow, &x3);
-  narrow(&y3_narrow, &y3);
-  narrow(&dt3_narrow, &dt3);
-  narrow(&z3_narrow, &z3);
-
-  narrow_reduce(&result->x, &x3_narrow);
-  narrow_reduce(&result->y, &y3_narrow);
-  narrow_reduce(&result->dt, &dt3_narrow);
-  narrow_reduce(&result->z, &z3_narrow);
+  narrow(&result->dt, &dt3);
+  narrow(&result->z, &z3);
 }
 
 void readd_to_projective(
@@ -571,136 +618,8 @@ void affine_readd_to_extended(
   result->z.limbs[1] = 1;
 }
 
-
-#include <stdio.h>
-static void print_scalar(const scalar_t *x) {
-  printf("[");
-  for (int i = 0; i < SCALAR_LIMBS; ++i) {
-    printf(" %#x,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-static void print_projective_pt_wide(const projective_pt_wide_t *x) {
-  printf("x: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->x.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("y: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->y.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("z: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->z.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-static void print_extended_pt_wide(const extended_pt_wide_t *x) {
-  printf("x: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->x.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("y: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->y.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("t: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->t.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("z: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->z.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-static void print_readd_reduced(const extended_pt_readd_narrow_reduced_t *x) {
-  printf("x: [");
-  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    printf(" %#x,", x->x.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("y: [");
-  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    printf(" %#x,", x->y.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("dt: [");
-  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    printf(" %#x,", x->dt.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("z: [");
-  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    printf(" %#x,", x->z.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-static void print_readd(const extended_pt_readd_narrow_t *x) {
-  printf("x: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#x,", x->x.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("y: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#x,", x->y.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("dt: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#x,", x->dt.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-  printf("z: [");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#x,", x->z.limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
 void scalar_multiply(
-  projective_pt_wide_t *result, const affine_pt_narrow_reduced_t * __restrict x,
+  projective_pt_wide_t *result, const affine_pt_narrow_t * __restrict x,
   const scalar_t * __restrict n) {
 
   scalar_t sabs_n;
@@ -710,13 +629,13 @@ void scalar_multiply(
   const uint32_t WINDOW_MASK = (1 << WINDOW_BITS) - 1;
   const uint32_t LOOKUP_MASK = WINDOW_MASK >> 1;
   const int TABLE_SIZE = 16;
-  extended_pt_readd_narrow_reduced_t table[TABLE_SIZE];
+  extended_pt_readd_narrow_t table[TABLE_SIZE];
 
   extended_pt_wide_t x2;
   affine_double_extended(&x2, x);
-  affine_to_readd_narrow_reduced(&table[0], x);
+  affine_to_readd_narrow(&table[0], x);
   for (int i = 1; i < TABLE_SIZE; ++i) {
-    extended_readd_readd_narrow_reduce(&table[i], &x2, &table[i-1]);
+    extended_readd_readd_narrow(&table[i], &x2, &table[i-1]);
   }
 
   int i;
@@ -743,7 +662,7 @@ void scalar_multiply(
     int32_t invert = (bits >> (WINDOW_BITS - 1)) - 1;
     bits ^= invert;
 
-    constant_time_extended_narrow_reduced_lookup(
+    constant_time_extended_narrow_lookup(
       &window_pt, bits & LOOKUP_MASK, TABLE_SIZE, table);
     constant_time_cond_extended_negate(&window_pt, invert);
 
@@ -767,8 +686,72 @@ void scalar_multiply(
   explicit_bzero(&temp_ext, sizeof(temp_ext));
 }
 
+void scalar_multiply_unsafe(
+  projective_pt_wide_t *result, const affine_pt_narrow_t * __restrict x,
+  const scalar_t * __restrict n) {
+
+  scalar_t sabs_n;
+  convert_to_sabs(&sabs_n, n);
+
+  const int WINDOW_BITS = 5;
+  const uint32_t WINDOW_MASK = (1 << WINDOW_BITS) - 1;
+  const uint32_t LOOKUP_MASK = WINDOW_MASK >> 1;
+  const int TABLE_SIZE = 16;
+  extended_pt_readd_narrow_t table[TABLE_SIZE];
+
+  extended_pt_wide_t x2;
+  affine_double_extended(&x2, x);
+  affine_to_readd_narrow(&table[0], x);
+  for (int i = 1; i < TABLE_SIZE; ++i) {
+    extended_readd_readd_narrow(&table[i], &x2, &table[i-1]);
+  }
+
+  int i;
+  int first = 1;
+  // Set i to the highest i such that
+  // a) i < SCALAR_BITS
+  // b) i % WINDOW_BITS = 0
+
+  projective_pt_wide_t temp;
+  extended_pt_wide_t temp_ext;
+  extended_pt_readd_narrow_t window_pt;
+
+  i = SCALAR_BITS - ((SCALAR_BITS - 1) % WINDOW_BITS) - 1;
+  for (; i >= 0; i -= WINDOW_BITS) {
+    uint32_t bits = sabs_n.limbs[i/SCALAR_LIMB_BITS] >> (i % SCALAR_LIMB_BITS);
+    if (i % SCALAR_LIMB_BITS > (SCALAR_LIMB_BITS - WINDOW_BITS) &&
+        i / SCALAR_LIMB_BITS < SCALAR_LIMBS - 1) {
+
+      bits |= sabs_n.limbs[i/SCALAR_LIMB_BITS + 1] <<
+        (SCALAR_LIMB_BITS - i % SCALAR_LIMB_BITS);
+    }
+
+    bits &= WINDOW_MASK;
+    int32_t invert = (bits >> (WINDOW_BITS - 1)) - 1;
+    bits ^= invert;
+
+    copy_extended_pt_readd_narrow(&window_pt, &table[bits & LOOKUP_MASK]);
+    if (invert) {
+      negate_extended_pt_readd_narrow(&window_pt, &window_pt);
+    }
+
+    if (first) {
+      readd_to_projective(&temp, &window_pt);
+      first = 0;
+    } else {
+      for (int i = 0; i < WINDOW_BITS - 1; ++i) {
+        projective_double(&temp, &temp);
+      }
+      projective_double_extended(&temp_ext, &temp);
+      extended_readd_narrow(&temp, &temp_ext, &window_pt);
+    }
+  }
+
+  copy_projective_pt_wide(result, &temp);
+}
+
 int point_decompress(
-  affine_pt_narrow_reduced_t *result,
+  affine_pt_narrow_t *result,
   residue_narrow_reduced_t *y, int low_bit) {
 
   residue_narrow_t y_n;
@@ -777,24 +760,24 @@ int point_decompress(
   residue_wide_t v;
 
   residue_wide_t y2;
-  residue_narrow_t temp;
+  residue_narrow_reduced_t temp;
   residue_wide_t x_wide;
 
   unnarrow_reduce(&y_n, y);
   square_narrow(&y2, &y_n);
-  copy_narrow_reduced(&result->y, y);
+  copy_narrow(&result->y, &y_n);
 
   sub_wide(&u, &one_wide, &y2);
   mul_wide_const(&y2, &y2, D);
   sub_wide(&v, &one_wide, &y2);
 
   if (sqrt_inv_wide(&x_wide, &u, &v)) {
-    narrow(&temp, &x_wide);
-    narrow_partial_complete(&result->x, &temp);
+    narrow(&result->x, &x_wide);
+    narrow_partial_complete(&temp, &result->x);
 
-    int x_is_odd = is_odd(&result->x);
+    int x_is_odd = is_odd(&temp);
     if ((x_is_odd && !low_bit) || (low_bit && !x_is_odd)) {
-      negate_narrow_reduced(&result->x, &result->x);
+      negate_narrow(&result->x, &result->x);
     }
 
     return 1;

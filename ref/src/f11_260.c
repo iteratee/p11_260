@@ -18,7 +18,7 @@ void narrow(residue_narrow_t *result, const residue_wide_t * __restrict w) {
   }
 }
 
-// Reduce to 10 limbs. Suitable for table entries.
+// Reduce to 10 limbs. Useful for debugging
 void narrow_reduce(
   residue_narrow_reduced_t *result, const residue_narrow_t * __restrict w) {
   residue_narrow_t temp;
@@ -131,19 +131,18 @@ int is_odd(residue_narrow_reduced_t *x) {
   return result;
 }
 
-// Produce a 32-bit entry with 11 limbs
-void unnarrow_reduce(
-  residue_narrow_t *result, const residue_narrow_reduced_t * __restrict x) {
-
-  result->limbs[0] = result->limbs[NLIMBS - 1] = 0;
-  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    result->limbs[i+1] = x->limbs[i];
-  }
-}
-
 // Copy a 12x64-bit residue
 void copy_wide(
   residue_wide_t *result, const residue_wide_t * __restrict x) {
+
+  for (int i = 0; i < NLIMBS; ++i) {
+    result->limbs[i] = x->limbs[i];
+  }
+}
+
+// Copy a 12x32-bit residue
+void copy_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x) {
 
   for (int i = 0; i < NLIMBS; ++i) {
     result->limbs[i] = x->limbs[i];
@@ -186,9 +185,9 @@ void negate_wide(residue_wide_t *result, const residue_wide_t *x) {
   }
 }
 
-// negate a 10x32-bit residue.
-void negate_narrow_reduced(
-  residue_narrow_reduced_t *result, const residue_narrow_reduced_t *x) {
+// negate a 12x32-bit residue.
+void negate_narrow(
+  residue_narrow_t *result, const residue_narrow_t *x) {
 
   for (int i = 0; i < NLIMBS_REDUCED; ++i) {
     result->limbs[i] = -(x->limbs[i]);
@@ -244,6 +243,28 @@ void mul_wide(
   reduce_step_wide(&temp, &temp);
   reduce_step_wide(result, &temp);
 }
+
+#include <stdio.h>
+static void print_wide(const residue_wide_t *x) {
+  printf("[");
+  for (int i = 0; i < NLIMBS; ++i) {
+    printf(" %#lx,", x->limbs[i]);
+    // printf("x[%d]: %d\n", i, x[i]);
+  }
+  printf(" ]");
+  printf("\n");
+}
+
+static void print_narrow(const residue_narrow_t *x) {
+  printf("[");
+  for (int i = 0; i < NLIMBS; ++i) {
+    printf(" %#x,", x->limbs[i]);
+    // printf("x[%d]: %d\n", i, x[i]);
+  }
+  printf(" ]");
+  printf("\n");
+}
+
 // Multiply a wide residues by a narrow and produce a wide result. The result is
 // reduced to 32 bits, but not narrowed for performance reasons.
 void mul_wide_narrow(
@@ -253,7 +274,7 @@ void mul_wide_narrow(
   for (int i = 0; i < NLIMBS - 1; ++i) {
     temp.limbs[i + 1] = 0;
     int i_2 = (i + (-(i & 1) & (NLIMBS - 1))) >> 1;
-    for (int j = 1; j < NLIMBS / 2; ++ j) {
+    for (int j = 1; j < NLIMBS / 2; ++j) {
       temp.limbs[i + 1] +=
         (x->limbs[wrap(i_2 + j)] - x->limbs[wrap(i_2 - j)]) *
         ((int64_t) (y->limbs[wrap(i_2 - j)] - y->limbs[wrap(i_2 + j)]));
@@ -387,17 +408,6 @@ void reduce_step_wide(
   result->limbs[0] = result->limbs[NLIMBS - 1];
 }
 
-#include <stdio.h>
-static void print_wide(const residue_wide_t *x) {
-  printf("[");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
 // Takes advantage of the fact that if a residue z *is zero* then after setting
 // one coefficient to T/2, all the remaining coefficients should be near to
 // T/2. They should therefore resolve all carries in a single step, and all be
@@ -425,7 +435,6 @@ int equal_wide(const residue_wide_t *x, const residue_wide_t *y) {
 
 int equal_narrow_reduced(
   const residue_narrow_reduced_t * x, const residue_narrow_reduced_t * y) {
-  residue_narrow_reduced_t temp;
 
   int result = 0;
   for (int i = 0; i < NLIMBS_REDUCED; ++i) {

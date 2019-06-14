@@ -12,7 +12,7 @@
 
 // A single comb table.
 typedef struct sabs_single_comb {
-  extended_affine_pt_readd_narrow_reduced_t table[COMB_TABLE_SIZE];
+  extended_affine_pt_readd_narrow_t table[COMB_TABLE_SIZE];
 } sabs_single_comb_t;
 
 // A single wide comb table. Used in computing a narrow comb table.
@@ -41,11 +41,15 @@ typedef struct teeth_set {
 sabs_comb_set_t base_comb;
 
 void compute_comb_set(
-  sabs_comb_set_t *result, const affine_pt_narrow_reduced_t *base_pt);
+  sabs_comb_set_t *result, const affine_pt_narrow_t *base_pt);
 
 void reduce_comb_set(sabs_comb_set_t *result, sabs_comb_set_wide_t *source);
 
 void scalar_comb_multiply(
+  projective_pt_wide_t *result, const sabs_comb_set_t * __restrict comb,
+  const scalar_t * __restrict n);
+
+void scalar_comb_multiply_unsafe(
   projective_pt_wide_t *result, const sabs_comb_set_t * __restrict comb,
   const scalar_t * __restrict n);
 #endif
