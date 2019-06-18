@@ -2,17 +2,6 @@
 #include "f11_260.h"
 #include "curve.h"
 
-#include <stdio.h>
-static void print_residue_narrow(const residue_narrow_t *x) {
-  printf("[");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#x,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
 static inline void mask_copy_narrow(
   int32_t mask, residue_narrow_t *result,
   residue_narrow_t *x) {

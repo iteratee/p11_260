@@ -10,93 +10,6 @@
 #include "scalar.h"
 #include "sign.h"
 
-static void print12(int64_t x[12]) {
-  printf("[");
-  for (int i = 0; i < 12; ++i) {
-    printf(" %#lx,", x[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-static void print12_narrow(int32_t x[12]) {
-  printf("[");
-  for (int i = 0; i < 12; ++i) {
-    printf(" %#x,", x[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-void print_narrow_reduced(const residue_narrow_reduced_t *x) {
-  printf("{");
-  for (int i = 0; i < 10; ++i) {
-    printf(" %#x,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf("}");
-  printf("\n");
-}
-
-void print_narrow(const residue_narrow_t *x) {
-  printf("{");
-  for (int i = 0; i < 12; ++i) {
-    printf(" %#x,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf("}");
-  printf("\n");
-}
-
-static void print_scalar(scalar_t *x) {
-  printf("[");
-  for (int i = 0; i < SCALAR_LIMBS; ++i) {
-    printf(" %#x,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-static void print_affine_readd_narrow(
-    const extended_affine_pt_readd_narrow_t *x) {
-  printf("{\n");
-  //printf(".x = ");
-  //print_narrow(&x->x);
-  //printf(",\n");
-  //printf(".dt = ");
-  //print_narrow(&x->dt);
-  //printf(",\n");
-  printf(".y = ");
-  print_narrow(&x->y);
-  printf(",\n");
-  printf("}\n");
-}
-
-static void print_sabs_single_comb(
-  const sabs_single_comb_t *comb) {
-  printf("{\n");
-  printf(".table = {\n");
-  for (int i = 0; i < COMB_TABLE_SIZE; ++i) {
-    print_affine_readd_narrow(&comb->table[i]);
-    printf(",\n");
-  }
-  printf("},\n}");
-}
-
-static void print_sabs_comb_set(
-  const sabs_comb_set_t *combs) {
-  printf("{\n");
-  printf(".combs = {\n");
-  for (int i = 0; i < COMB_COUNT; ++i) {
-    print_sabs_single_comb(&combs->combs[i]);
-    printf(",\n");
-  }
-  printf("},\n}");
-}
-
 int main(int _argc, char **argv) {
   residue_narrow_t x = {
     .limbs = {
@@ -651,7 +564,7 @@ int main(int _argc, char **argv) {
     gen_key(&priv_key, &pub_key);
   }
   #endif
-  for (int i = 0; i < 1; ++i) {
+  for (int i = 0; i < 100000; ++i) {
     uint8_t encoded_sk[66];
     uint8_t encoded_sig[65];
     const uint8_t *msg = (uint8_t *) "Hello World!";

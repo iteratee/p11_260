@@ -1051,58 +1051,6 @@ void reduce_comb_set(sabs_comb_set_t *result, sabs_comb_set_wide_t *source) {
   }
 }
 
-#include <stdio.h>
-static void print_narrow_reduced(
-  const char *label, const residue_narrow_reduced_t *x) {
-  printf("%s: [", label);
-  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    printf(" %#x,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-static void print_narrow(
-  const char *label, const residue_narrow_t *x) {
-  residue_narrow_reduced_t x_nr;
-  narrow_reduce(&x_nr, x);
-  print_narrow_reduced(label, &x_nr);
-}
-
-static void print_as_narrow_reduced(
-  const char *label, const residue_wide_t *x) {
-  residue_narrow_t x_n;
-  narrow(&x_n, x);
-  print_narrow(label, &x_n);
-}
-
-static void print_projective_pt_wide(const projective_pt_wide_t *x) {
-  print_as_narrow_reduced("x", &x->x);
-  print_as_narrow_reduced("y", &x->y);
-  print_as_narrow_reduced("z", &x->z);
-}
-
-static void print_extended_pt_wide(const extended_pt_wide_t *x) {
-  print_as_narrow_reduced("x", &x->x);
-  print_as_narrow_reduced("y", &x->y);
-  print_as_narrow_reduced("t", &x->t);
-  print_as_narrow_reduced("z", &x->z);
-}
-
-static void print_readd(const extended_pt_readd_narrow_t *x) {
-  print_narrow("x", &x->x);
-  print_narrow("y", &x->y);
-  print_narrow("dt", &x->dt);
-  print_narrow("z", &x->z);
-}
-
-static void print_affine_readd(const extended_affine_pt_readd_narrow_t *x) {
-  print_narrow("x", &x->x);
-  print_narrow("y", &x->y);
-  print_narrow("dt", &x->dt);
-}
-
 void scalar_comb_multiply(
   projective_pt_wide_t *result, const sabs_comb_set_t * __restrict comb,
   const scalar_t * __restrict n) {

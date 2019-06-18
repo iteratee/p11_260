@@ -1309,17 +1309,6 @@ void reduce_step_wide(
   _mm256_store_si256((__m256i*) &result->limbs[0], accum0);
 }
 
-#include <stdio.h>
-static void print_wide(const residue_wide_t *x) {
-  printf("[");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
 // Takes advantage of the fact that if a residue z *is zero* then after setting
 // one coefficient to T/2, all the remaining coefficients should be near to
 // T/2. They should therefore resolve all carries in a single step, and all be

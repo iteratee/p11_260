@@ -244,27 +244,6 @@ void mul_wide(
   reduce_step_wide(result, &temp);
 }
 
-#include <stdio.h>
-static void print_wide(const residue_wide_t *x) {
-  printf("[");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#lx,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
-static void print_narrow(const residue_narrow_t *x) {
-  printf("[");
-  for (int i = 0; i < NLIMBS; ++i) {
-    printf(" %#x,", x->limbs[i]);
-    // printf("x[%d]: %d\n", i, x[i]);
-  }
-  printf(" ]");
-  printf("\n");
-}
-
 // Multiply a wide residues by a narrow and produce a wide result. The result is
 // reduced to 32 bits, but not narrowed for performance reasons.
 void mul_wide_narrow(
