@@ -5,6 +5,7 @@
 #include "curve.h"
 #include "constant_time.h"
 
+__attribute__((__aligned__(32)))
 const affine_pt_narrow_t B = {
   .x = {
     .limbs = {

@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include "comb.h"
 #include "curve.h"
 #include "f11_260.h"
@@ -649,25 +651,43 @@ int main(int _argc, char **argv) {
     gen_key(&priv_key, &pub_key);
   }
   #endif
-  for (int i = 0; i < 1000000; ++i) {
+  for (int i = 0; i < 1; ++i) {
+    uint8_t encoded_sk[66];
+    uint8_t encoded_sig[65];
     const uint8_t *msg = (uint8_t *) "Hello World!";
     const size_t msglen = 13;
     scalar_t priv_key;
+    scalar_t priv_key_decoded;
     affine_pt_narrow_t pub_key;
+    affine_pt_narrow_t pub_key_decoded;
     gen_key(&priv_key, &pub_key);
-    residue_narrow_reduced_t compressed_key;
-    narrow_complete(&compressed_key, &pub_key.y);
-    residue_narrow_reduced_t x_reduced;
-    narrow_partial_complete(&x_reduced, &pub_key.x);
-    compressed_key.limbs[NLIMBS_REDUCED - 1] |=
-        is_odd(&x_reduced) << (TBITS);
-    uint8_t pubkey_buf[RESIDUE_LENGTH_BYTES];
-    encode(pubkey_buf, &compressed_key);
+    memcpy(encoded_sk, &priv_key, SCALAR_BYTES);
+    encode_pub_key(encoded_sk + SCALAR_BYTES, &pub_key);
+    priv_key_decoded.limbs[SCALAR_LIMBS - 1] = 0;
+    memcpy(&priv_key_decoded, encoded_sk, SCALAR_BYTES);
+    for (int j = 0; j < SCALAR_LIMBS; ++j) {
+      assert(priv_key.limbs[j] == priv_key_decoded.limbs[j]);
+    }
     signature_t result;
-    sign(&result, &priv_key, pubkey_buf, msg, msglen);
+    sign(&result, &priv_key_decoded, encoded_sk + SCALAR_BYTES, msg, msglen);
+    encode_sig(encoded_sig, &result);
+    signature_t result_decoded;
+    decode_sig(&result_decoded, encoded_sig);
+    for (int j = 0; j < SCALAR_LIMBS; ++j) {
+      assert(result.s.limbs[j] == result_decoded.s.limbs[j]);
+    }
+    for (int j = 0; j < NLIMBS_REDUCED; ++j) {
+      assert(result.y.limbs[j] == result_decoded.y.limbs[j]);
+    }
+    assert(decode_pub_key(&pub_key_decoded, encoded_sk + SCALAR_BYTES));
+
     uint8_t y_buf[RESIDUE_LENGTH_BYTES];
-    encode(y_buf, &result.y);
-    assert(verify(&result, y_buf, pubkey_buf, &pub_key, msg, msglen));
+    encode(y_buf, &result_decoded.y);
+    if(!verify(&result, y_buf, encoded_sk + SCALAR_BYTES, &pub_key_decoded, msg,
+    msglen)) {
+      printf("verification failed\n");
+      exit(1);
+    }
     // printf("sig:\nr:\n");
     // print_narrow_reduced(&result.y);
     // printf("s:\n");

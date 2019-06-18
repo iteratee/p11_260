@@ -25,7 +25,7 @@ int crypto_sign(
   scalar_t priv_key;
   priv_key.limbs[SCALAR_LIMBS - 1] = 0;
   memcpy(&priv_key, sk, SCALAR_BYTES);
-  sign(&sig_struct, &priv_key, sk + SCALAR_BYTES);
+  sign(&sig_struct, &priv_key, sk + SCALAR_BYTES, m, mlen);
 
   *smlen = mlen + SIG_LENGTH;
   encode_sig(sm, &sig_struct);
@@ -43,11 +43,15 @@ int crypto_sign_open(
   if (!decode_pub_key(&pub_key_pt, pk)) {
     return -1;
   }
-  if (!verify(&sig_struct, sm, pk, &pub_key_pt, sm + SIG_LENGTH,
+
+  uint8_t y_buf[RESIDUE_LENGTH_BYTES];
+  encode(y_buf, &sig_struct.y);
+
+  if (!verify(&sig_struct, y_buf, pk, &pub_key_pt, sm + SIG_LENGTH,
               smlen - SIG_LENGTH)) {
     return -2;
   }
   *mlen = smlen - SIG_LENGTH;
-  memcpy(m, sm, smlen - SIG_LENGTH);
+  memcpy(m, sm + SIG_LENGTH, smlen - SIG_LENGTH);
   return 0;
 }

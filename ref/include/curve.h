@@ -49,6 +49,7 @@ typedef struct extended_pt_wide {
 
 #define D (-49142)
 
+__attribute__((__aligned__(32)))
 const affine_pt_narrow_t B;
 
 void copy_projective_pt_wide(

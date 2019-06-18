@@ -9,6 +9,7 @@
 #include "scalar.h"
 
 #include "sign.h"
+
 void sign(signature_t *result, scalar_t *priv_key,
   const uint8_t *pub_key, const uint8_t *msg, size_t msg_len) {
   blake2b_state hash_ctxt;

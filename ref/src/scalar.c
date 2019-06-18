@@ -8,16 +8,19 @@
 // Ed448 code.
 
 // Constants:
+__attribute__((__aligned__(32)))
 const scalar_t l_bits = {
   .limbs = {0x28ad9c41, 0xe6dcf7e8, 0x34b804af, 0x5af91169,
             0x5cf68f2f, 0x125277f4, 0x9c1bf9f, 0xffff6b00, 0x3,},
 };
 
+__attribute__((__aligned__(32)))
 const scalar_t signed_bits_set_adjustment = {
   .limbs = {0x5d498efb, 0x648c205f, 0x2d1fed40, 0x941bba5b,
             0x8c25c342, 0xb6b6202e, 0xd8f90183, 0x000253ff, 0x0,},
 };
 
+__attribute__((__aligned__(32)))
 const scalar_t SCALAR_MONT_R2 = {
   .limbs = {0x30ba45c7, 0xf3422093, 0x054bbbf6, 0x017ab264,
             0x914ee18b, 0x250f1097, 0xf6bc1224, 0x5e97c70e, 0x2,},
@@ -25,6 +28,7 @@ const scalar_t SCALAR_MONT_R2 = {
 
 const uint32_t SCALAR_MONT_N_PRIME = 0xb3138c3f;
 
+__attribute__((__aligned__(32)))
 const scalar_t SCALAR_MONT_R2_HASH = {
   .limbs = {
             0x202dd8e7, 0xcb1bf7be, 0xd219daf6, 0xb85aba0a,

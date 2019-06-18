@@ -5,11 +5,11 @@
 
 residue_wide_t zero_wide = {0};
 residue_wide_t one_wide = {
-  .limbs = {1},
+  .limbs = {0, 1},
 };
 residue_narrow_t zero_narrow = {0};
 residue_narrow_t one_narrow = {
-  .limbs = {1},
+  .limbs = {0, 1},
 };
 
 #define NVECTORS 3

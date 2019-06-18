@@ -3,11 +3,11 @@
 
 residue_wide_t zero_wide = {0};
 residue_wide_t one_wide = {
-  .limbs = {1},
+  .limbs = {0, 1},
 };
 residue_narrow_t zero_narrow = {0};
 residue_narrow_t one_narrow = {
-  .limbs = {1},
+  .limbs = {0, 1},
 };
 
 // Shrink to 32 bits. Assumes reduction has already occurred, and wide storage
@@ -189,7 +189,7 @@ void negate_wide(residue_wide_t *result, const residue_wide_t *x) {
 void negate_narrow(
   residue_narrow_t *result, const residue_narrow_t *x) {
 
-  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+  for (int i = 0; i < NLIMBS; ++i) {
     result->limbs[i] = -(x->limbs[i]);
   }
 }
