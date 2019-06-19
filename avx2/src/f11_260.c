@@ -1265,47 +1265,46 @@ void reduce_step_wide(
   __m256i mask = _mm256_set1_epi64x(0x3ffffff);
 
   accum8 = _mm256_load_si256((__m256i*) &x->limbs[8]);
-  accum4 = _mm256_load_si256((__m256i*) &x->limbs[4]);
-  accum0 = _mm256_load_si256((__m256i*) &x->limbs[0]);
-
   logical_shift = _mm256_srli_epi64(accum8, 26);
   arithmetic_shift = _mm256_srai_epi32(accum8, 26);
+  accum8 = _mm256_and_si256(accum8, mask);
   error8 = _mm256_blend_epi32(logical_shift, arithmetic_shift, 0xaa);
+  accum8 = _mm256_sub_epi64(accum8, error8);
   carry_rot8 = _mm256_permute4x64_epi64(error8, 0x92);
   shift_error8 = _mm256_slli_epi64(error8, 4);
+  accum8 = _mm256_add_epi64(accum8, shift_error8);
 
+  accum4 = _mm256_load_si256((__m256i*) &x->limbs[4]);
   logical_shift = _mm256_srli_epi64(accum4, 26);
   arithmetic_shift = _mm256_srai_epi32(accum4, 26);
+  accum4 = _mm256_and_si256(accum4, mask);
   error4 = _mm256_blend_epi32(logical_shift, arithmetic_shift, 0xaa);
+  accum4 = _mm256_sub_epi64(accum4, error4);
   carry_rot4 = _mm256_permute4x64_epi64(error4, 0x93);
   shift_error4 = _mm256_slli_epi64(error4, 4);
-
-  logical_shift = _mm256_srli_epi64(accum0, 26);
-  arithmetic_shift = _mm256_srai_epi32(accum0, 26);
-  error0 = _mm256_blend_epi32(logical_shift, arithmetic_shift, 0xaa);
-  carry_rot0 = _mm256_permute4x64_epi64(error0, 0x93);
-  shift_error0 = _mm256_slli_epi64(error0, 4);
-
-  accum8 = _mm256_and_si256(accum8, mask);
-  accum4 = _mm256_and_si256(accum4, mask);
-  accum0 = _mm256_and_si256(accum0, mask);
-
-  accum8 = _mm256_sub_epi64(accum8, error8);
-  accum4 = _mm256_sub_epi64(accum4, error4);
-  accum0 = _mm256_sub_epi64(accum0, error0);
-
-  accum8 = _mm256_add_epi64(accum8, shift_error8);
   accum4 = _mm256_add_epi64(accum4, shift_error4);
-  accum0 = _mm256_add_epi64(accum0, shift_error0);
 
   merged_carry = _mm256_blend_epi32(carry_rot8, carry_rot4, 0x03);
   accum8 = _mm256_add_epi64(accum8, merged_carry);
+  _mm256_store_si256((__m256i*) &result->limbs[8], accum8);
+
+  accum0 = _mm256_load_si256((__m256i*) &x->limbs[0]);
+  logical_shift = _mm256_srli_epi64(accum0, 26);
+  arithmetic_shift = _mm256_srai_epi32(accum0, 26);
+  accum0 = _mm256_and_si256(accum0, mask);
+  error0 = _mm256_blend_epi32(logical_shift, arithmetic_shift, 0xaa);
+  accum0 = _mm256_sub_epi64(accum0, error0);
+  carry_rot0 = _mm256_permute4x64_epi64(error0, 0x93);
+
   merged_carry = _mm256_blend_epi32(carry_rot4, carry_rot0, 0x03);
   accum4 = _mm256_add_epi64(accum4, merged_carry);
+  _mm256_store_si256((__m256i*) &result->limbs[4], accum4);
+
+  shift_error0 = _mm256_slli_epi64(error0, 4);
+  accum0 = _mm256_add_epi64(accum0, shift_error0);
+
   merged_carry = _mm256_blend_epi32(carry_rot0, carry_rot8, 0x03);
   accum0 = _mm256_add_epi64(accum0, merged_carry);
-  _mm256_store_si256((__m256i*) &result->limbs[8], accum8);
-  _mm256_store_si256((__m256i*) &result->limbs[4], accum4);
   _mm256_store_si256((__m256i*) &result->limbs[0], accum0);
 }
 
