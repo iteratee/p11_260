@@ -35,20 +35,30 @@ typedef struct sabs_comb_set_wide {
 
 // used for computing the entries in the comb table.
 typedef struct teeth_set {
+  // We don't need the lowest tooth to compute the entries, because for signed
+  // all bits set, to change the bit, you add or subtract a value of 2*bit.
   extended_pt_readd_wide_t teeth[COMB_TEETH - 1];
 } teeth_set_t;
 
+// The base comb used for fast signatures.
 sabs_comb_set_t base_comb;
 
+// Compute a comb set for a given point.
 void compute_comb_set(
   sabs_comb_set_t *result, const affine_pt_narrow_t *base_pt);
 
+// Helper function used to compute a comb set.
 void reduce_comb_set(sabs_comb_set_t *result, sabs_comb_set_wide_t *source);
 
+// Constant time multiplication of a scalar times a point given the point's
+// comb.
 void scalar_comb_multiply(
   projective_pt_wide_t *result, const sabs_comb_set_t * __restrict comb,
   const scalar_t * __restrict n);
 
+// Non-Constant time multiplication of a scalar times a point given the point's
+// comb. Can be safely used during signature verification because there are no
+// secrets during verification.
 void scalar_comb_multiply_unsafe(
   projective_pt_wide_t *result, const sabs_comb_set_t * __restrict comb,
   const scalar_t * __restrict n);

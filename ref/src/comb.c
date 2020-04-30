@@ -5,6 +5,7 @@
 #include "constant_time.h"
 #include "f11_260.h"
 
+// Comb set for base point. Used for fast signatures.
 sabs_comb_set_t base_comb = {
   .combs = {
     {
@@ -925,35 +926,58 @@ sabs_comb_set_t base_comb = {
 void compute_comb_set(
   sabs_comb_set_t *result, const affine_pt_narrow_t *base_pt) {
   sabs_comb_set_wide_t result_t;
-  teeth_set_t teeth_sets[4];
-  extended_pt_wide_t everything_pts[4];
+  // Temporarily store the individual teeth for computing the individual comb
+  // entries.
+  teeth_set_t teeth_sets[COMB_COUNT];
 
+  // For signed all bits set representation, we start with the all bits positive
+  // representation. We build those points incrementally in this array.
+  extended_pt_wide_t everything_pts[COMB_COUNT];
+
+  // Used to hold the current point during the doubling operation. We start the
+  // iteration at 1 because we do special things at the start of a comb, and the
+  // base point needs to have those done differently.
   projective_pt_wide_t temp;
   extended_pt_wide_t temp_ext;
+  // Start at 2^1 * b
   affine_double_extended(&temp_ext, base_pt);
+  // We'll need the projective point for the start of the loop.
+  extended_to_projective_wide(&temp, &temp_ext);
+  // We start the teeth sets out negative because we're going to alternate signs
+  // during the gray code walk. Note that we don't put the base point into the
+  // tooth set. (Because we never need it as a delta to walk SABS gray code)
   extended_to_readd_wide_neg(&teeth_sets[0].teeth[0], &temp_ext);
+  // Initialize the first everything point
   affine_narrow_to_extended(&everything_pts[0], base_pt);
   for (int i = 1; i < COMB_TEETH * COMB_COUNT; ++i) {
-    if (i % COMB_TEETH != 0) {
-      extended_to_projective_wide(&temp, &temp_ext);
-    }
+    // We stop 2 before: 1 So we can get an extended result, and a second
+    // because SABS gives us the highest bit for free.
     for (int j = 0; j < COMB_SEPARATION - 2; ++j) {
       projective_double(&temp, &temp);
     }
     projective_double_extended(&temp_ext, &temp);
     if (i % COMB_TEETH == 0) {
+      // If this is the first tooth in the comb, just copy it into the
+      // everything array.
       copy_extended_pt_wide(&everything_pts[i/COMB_TEETH], &temp_ext);
     } else {
+      // Otherwise add it to the already in progress everything point.
       extended_add_extended(
         &everything_pts[i/COMB_TEETH], &everything_pts[i/COMB_TEETH],
         &temp_ext);
     }
+    // If this isn't the very last iteration
     if (i != COMB_TEETH * COMB_COUNT - 1) {
       if (i % COMB_TEETH != COMB_TEETH - 1) {
+        // If it isn't the last tooth of the comb
         extended_double_extended(&temp_ext, &temp_ext);
         extended_to_readd_wide_neg(
           &teeth_sets[i/COMB_TEETH].teeth[i % COMB_TEETH], &temp_ext);
+        // We'll need the projective point for the loop.
+        extended_to_projective_wide(&temp, &temp_ext);
       } else {
+        // Double to match the double we would have done if this weren't the
+        // last tooth.
         extended_to_projective_wide(&temp, &temp_ext);
         projective_double(&temp, &temp);
       }
@@ -962,12 +986,16 @@ void compute_comb_set(
   // We now have all the precomputation necessary to walk the gray codes and
   // compute the table entries.
   int entry = COMB_TABLE_SIZE - 1;
+  // The everything point goes in the very last slot in the comb table
   for (int i = 0; i < COMB_COUNT; ++i) {
     extended_to_projective_wide(
       &result_t.combs[i].table[entry], &everything_pts[i]);
   }
   for (int i = 1; i < COMB_TABLE_SIZE; ++i) {
     int j;
+    // This makes entry walk a gray code. The gray code starts at
+    // COMB_TABLE_SIZE - 1 rather than starting at 0. At the end of the loop, j
+    // is the bit that was toggled.
     for (j = 0; j < COMB_TEETH - 1; ++j) {
       int bit = 1 << (j + 1);
       int mask = bit - 1;
@@ -977,15 +1005,19 @@ void compute_comb_set(
         break;
       }
     }
+    // Toggle bit j in every comb.
     for (int k = 0; k < COMB_COUNT; ++k) {
       extended_readd_wide_extended(
         &everything_pts[k], &everything_pts[k], &teeth_sets[k].teeth[j]);
+      // To prepare for future toggling, negate the tooth.
       negate_extended_pt_readd_wide(
         &teeth_sets[k].teeth[j], &teeth_sets[k].teeth[j]);
+      // Store the result while also going from extended to projective
       extended_to_projective_wide(
         &result_t.combs[k].table[entry], &everything_pts[k]);
     }
   }
+  // Finally reduce to get the ultimate result
   reduce_comb_set(result, &result_t);
 }
 
@@ -999,6 +1031,10 @@ void reduce_comb_set(sabs_comb_set_t *result, sabs_comb_set_wide_t *source) {
 
   residue_wide_t z_inv;
 
+  // This is an interview question that is actually applicable. For every entry
+  // in the table we want to multiply it by every z entry but its own. We
+  // do it in two passes, accumulating z values as we go from left to right and
+  // right to left.
   copy_wide(&z_left, &source->combs[0].table[0].z);
   for (int i = 1; i < COMB_TABLE_SIZE * COMB_COUNT; ++i) {
     mul_wide(&source->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].x,
@@ -1025,10 +1061,13 @@ void reduce_comb_set(sabs_comb_set_t *result, sabs_comb_set_wide_t *source) {
              &source->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].z);
   }
 
+  // Now that all the entries have common denominators, perform a single
+  // inversion
   invert_wide(&z_inv, &z_right);
   for (int i = 0; i < COMB_TABLE_SIZE * COMB_COUNT; ++i) {
     residue_wide_t xy;
 
+    // Divide by the common z and narrow.
     mul_wide(&source->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].x,
              &source->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].x,
              &z_inv);
@@ -1041,6 +1080,7 @@ void reduce_comb_set(sabs_comb_set_t *result, sabs_comb_set_wide_t *source) {
     narrow(&result->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].y,
            &source->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].y);
 
+    // The combs store DT rather than T for faster additions.
     mul_wide(&xy,
              &source->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].x,
              &source->combs[i / COMB_TABLE_SIZE].table[i % COMB_TABLE_SIZE].y);
@@ -1061,6 +1101,7 @@ void scalar_comb_multiply(
   extended_pt_wide_t temp;
   extended_affine_pt_readd_narrow_t table_pt;
 
+  // Start with the highest bits because we double the accumulator
   for (int i = COMB_SEPARATION - 1; i >= 0; --i) {
     if (i != COMB_SEPARATION - 1) {
       extended_double_extended(&temp, &temp);
@@ -1068,6 +1109,7 @@ void scalar_comb_multiply(
     for (int j = 0; j < COMB_COUNT; ++j) {
       int entry = 0;
 
+      // extract the specific bits for this comb entry
       for (int k = 0; k < COMB_TEETH; ++k) {
         int bit = i + COMB_SEPARATION * (k + COMB_TEETH * j);
         if (bit < SCALAR_BITS) {
@@ -1076,6 +1118,7 @@ void scalar_comb_multiply(
         }
       }
 
+      // The highest bit is the sign bit.
       int32_t invert = (entry >> (COMB_TEETH - 1)) - 1;
       entry ^= invert;
 

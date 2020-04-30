@@ -597,13 +597,9 @@ int main(int _argc, char **argv) {
     uint8_t y_buf[RESIDUE_LENGTH_BYTES];
     encode(y_buf, &result_decoded.y);
     if(!verify(&result, y_buf, encoded_sk + SCALAR_BYTES, &pub_key_decoded, msg,
-    msglen)) {
+               msglen)) {
       printf("verification failed\n");
       exit(1);
     }
-    // printf("sig:\nr:\n");
-    // print_narrow_reduced(&result.y);
-    // printf("s:\n");
-    // print_scalar(&result.s);
   }
 }
