@@ -35,6 +35,12 @@ const scalar_t SCALAR_MONT_R2_HASH = {
             0xdc8da05f, 0xbd23bfce, 0xb7642c95, 0xbb13e4ad, 0x0,},
 };
 
+__attribute__((__aligned__(32)))
+const scalar_t SCALAR_MONT_R2_HASH_MUL = {
+  .limbs = {0x8b9c7a13, 0x37bb3081, 0xe4f0c2b0, 0x99b4a8b2,
+            0xb4538c55, 0x34c9db2a, 0x2ade0e63, 0xa7cb6782, 0x1,},
+};
+
 void divide_by_2_mod_l(
   scalar_t *result, const scalar_t *x) {
 
@@ -107,7 +113,6 @@ void convert_to_sabs(
   divide_by_2_mod_l(result, result);
 }
 
-#include <stdio.h>
 void mont_reduce_hash_mod_l(
   scalar_t *result, const scalar_hash_t * __restrict x) {
   uint32_t accum[HASH_LIMBS];

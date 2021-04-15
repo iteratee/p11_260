@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include "f11_260.h"
 
-// Reduced to 10 limbs. For smaller tables.
 typedef struct scalar {
   uint32_t limbs[9];
 } scalar_t;
@@ -31,9 +30,17 @@ const uint32_t SCALAR_MONT_N_PRIME;
 // (2 ^ 32)^18 mod l. Used to convert to montgomery domain.
 // Or to fix the result of a single multiply via a 2nd multiply.
 const scalar_t SCALAR_MONT_R2;
-// (2 ^ 32)^25 mod l.
-// Or to fix the result of a single hash by multiply via a 2nd multiply.
+// (2 ^ 32)^17 mod l.
+// Used to fix the result of a hash reduction via a multiply
+// A hash is reduced from HASH_LIMBS to SCALAR_LIMBS via
+// HASH_LIMBS - SCALAR_LIMBS + 1 divisions by 2^32. So a hash reduction produces
+// h * (2^32)^-8 mod l. Montgomery multiplying by (2^32)^17 mod l produces h mod
+// l
 const scalar_t SCALAR_MONT_R2_HASH;
+// (2 ^ 32)^26 mod l.
+// Used to fix the result of a hash reduction followed by a multiply.
+// By similar logic we need to get rid of a factor of (2^32)^-17
+const scalar_t SCALAR_MONT_R2_HASH_MUL;
 
 // Functions for manipulating scalars. May need more for ECDSA.
 

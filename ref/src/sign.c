@@ -55,8 +55,9 @@ void sign(signature_t *result, scalar_t *priv_key,
   blake2b_final(&hash_ctxt, (uint8_t *) &scalar_large, sizeof(scalar_hash_t));
 
   scalar_t hash_scalar;
-  reduce_hash_mod_l(&hash_scalar, &scalar_large);
-  mult_mod_l(&hash_scalar, &hash_scalar, priv_key);
+  mont_reduce_hash_mod_l(&hash_scalar, &scalar_large);
+  mont_mult_mod_l(&hash_scalar, &hash_scalar, priv_key);
+  mont_mult_mod_l(&hash_scalar, &hash_scalar, &SCALAR_MONT_R2_HASH_MUL);
   sub_mod_l(&result->s, &session_key, &hash_scalar);
 
   explicit_bzero(&session_key, sizeof(session_key));
