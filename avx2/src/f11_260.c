@@ -1380,6 +1380,38 @@ static void raise_to_t(
   mul_wide(result, &result_t, x);
 }
 
+static void raise_to_t2(
+  residue_wide_t *result, const residue_wide_t *x) {
+  // t^2 = 0xfffff880000e1
+  // zi = z^(2^i - 1), z1 = x
+  residue_wide_t z2;
+  residue_wide_t z3;
+  residue_wide_t z5;
+  residue_wide_t z10;
+  residue_wide_t z20;
+  residue_wide_t result_t;
+
+  square_wide(&z2, x);
+  mul_wide(&z2, &z2, x);
+  square_wide(&z3, &z2);
+  mul_wide(&z3, &z3, x);
+  nsquare_wide(&z5, &z3, 2);
+  mul_wide(&z5, &z5, &z2);
+  nsquare_wide(&z10, &z5, 5);
+  mul_wide(&z10, &z10, &z5);
+  nsquare_wide(&z20, &z10, 10);
+  mul_wide(&z20, &z20, &z10);
+  square_wide(&result_t, &z20);
+  mul_wide(&result_t, &result_t, x);
+  nsquare_wide(&result_t, &result_t, 4);
+  mul_wide(&result_t, &result_t, x);
+  // 22 = 3 for zeros in 8, 16 for zeros in 0000, 3 to make room for e.
+  nsquare_wide(&result_t, &result_t, 22);
+  mul_wide(&result_t, &result_t, &z3);
+  nsquare_wide(&result_t, &result_t, 5);
+  mul_wide(result, &result_t, x);
+}
+
 static void raise_to_phi_t(
   residue_wide_t *result, const residue_wide_t *x, int n) {
   residue_wide_t temp;
@@ -1474,16 +1506,26 @@ void invert_wide(
 
   residue_wide_t x_t_minus_1_over_4;
   residue_wide_t x_t_minus_1;
-  residue_wide_t x_t;
-  residue_wide_t phi_8_x_t;
-  residue_wide_t phi_8_x_t_t;
+  // x^2 (trades a multiply for a square)
+  residue_wide_t x2;
+  // rho_k = x^((t^k - 1)/(t - 1))
+  // rho_1 = x
+  residue_wide_t rho_2, rho_4, rho_8, rho_9;
+  residue_wide_t result_t;
 
   raise_to_t_minus_1_over_4(&x_t_minus_1_over_4, x);
   nsquare_wide(&x_t_minus_1, &x_t_minus_1_over_4, 2);
-  mul_wide(&x_t, &x_t_minus_1, x);
-  raise_to_phi_t(&phi_8_x_t, &x_t, 8);
-  raise_to_t(&phi_8_x_t_t, &phi_8_x_t);
-  mul_wide(result, &phi_8_x_t_t, &x_t_minus_1);
+  square_wide(&x2, x);
+  mul_wide(&rho_2, &x_t_minus_1, &x2);
+  raise_to_t2(&rho_4, &rho_2);
+  mul_wide(&rho_4, &rho_4, &rho_2);
+  raise_to_t2(&rho_8, &rho_4);
+  raise_to_t2(&rho_8, &rho_8);
+  mul_wide(&rho_8, &rho_8, &rho_4);
+  raise_to_t(&rho_9, &rho_8);
+  mul_wide(&rho_9, &rho_9, x);
+  raise_to_t2(&result_t, &rho_9);
+  mul_wide(result, &result_t, &x_t_minus_1);
 }
 
 void encode(uint8_t *out, const residue_narrow_reduced_t * __restrict x) {
