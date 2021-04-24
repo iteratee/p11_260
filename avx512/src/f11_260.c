@@ -3,13 +3,9 @@
 #include "emmintrin.h"
 #include "immintrin.h"
 
-residue_wide_t zero_wide = {0};
-residue_wide_t one_wide = {
-  .limbs = {0, 1},
-};
 residue_narrow_t zero_narrow = {0};
 residue_narrow_t one_narrow = {
-  .limbs = {0, 1},
+  .limbs = {1},
 };
 
 #define NVECTORS 3
@@ -34,7 +30,7 @@ void narrow(residue_narrow_t *result, const residue_wide_t * __restrict w) {
   }
 }
 
-// Reduce to 10 limbs. For final compression.
+// Reduce to 10 limbs. Useful for debugging.
 void narrow_reduce(
   residue_narrow_reduced_t *result, const residue_narrow_t * __restrict w) {
   residue_narrow_t temp;
@@ -55,7 +51,7 @@ void narrow_reduce(
   // May want to use vpalignr here.
   #pragma clang loop unroll(full)
   for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    result->limbs[i] = temp.limbs[i+1] - temp.limbs[0];
+    result->limbs[i] = temp.limbs[i] - temp.limbs[10];
   }
 }
 
@@ -66,7 +62,7 @@ void narrow_complete(
 
   residue_narrow_t temp;
   for (int i = 0; i < NLIMBS; ++i) {
-    temp.limbs[i] = w->limbs[i] - w->limbs[0];
+    temp.limbs[i] = w->limbs[i] - w->limbs[10];
   }
 
   // This may be combined with the final reduction from a multiply.
@@ -75,34 +71,34 @@ void narrow_complete(
   int gt_mask = 0;
   int lt_mask = 0;
   int32_t limit[NLIMBS];
-  for (int i = 1; i < NLIMBS; ++i) {
-    temp.limbs[i] = temp.limbs[i] - temp.limbs[0];
+  for (int i = 0; i < NLIMBS; ++i) {
+    temp.limbs[i] = temp.limbs[i] - temp.limbs[10];
     temp.limbs[i] += 1 & gt_mask;
-    temp.limbs[i] -= 1 & gt_mask;
+    temp.limbs[i] -= 1 & lt_mask;
     gt_mask = -(temp.limbs[i] > T);
     lt_mask = -(temp.limbs[i] < 0);
     temp.limbs[i] -= (T & gt_mask);
     temp.limbs[i] += (T & lt_mask);
   }
-  for (int i = 1; i < NLIMBS - 1; ++i) {
-    temp.limbs[i] -= temp.limbs[11];
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    temp.limbs[i] -= temp.limbs[10];
     limit[i] = T;
   }
   int64_t all_t = -1;
-  for (int i = NLIMBS - 3; i >= 1; --i) {
+  for (int i = NLIMBS_REDUCED - 2; i >= 0; --i) {
     all_t &= -(temp.limbs[i+1] == T);
     limit[i] -= 1 & (~all_t);
   }
   gt_mask = 0;
   lt_mask = 0;
-  for (int i = 1; i < NLIMBS - 1; ++i) {
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
     temp.limbs[i] += 1 & gt_mask;
     temp.limbs[i] -= 1 & lt_mask;
     gt_mask = -(temp.limbs[i] > limit[i]);
     lt_mask = -(temp.limbs[i] < 0);
     temp.limbs[i] -= (T & gt_mask);
     temp.limbs[i] += (T & lt_mask);
-    result->limbs[i-1] = temp.limbs[i];
+    result->limbs[i] = temp.limbs[i];
   }
 }
 
@@ -116,7 +112,7 @@ void narrow_partial_complete(
 
   residue_narrow_t temp;
   for (int i = 0; i < NLIMBS; ++i) {
-    temp.limbs[i] = w->limbs[i] - w->limbs[0];
+    temp.limbs[i] = w->limbs[i] - w->limbs[10];
   }
 
   // This may be combined with the final reduction from a multiply.
@@ -124,28 +120,28 @@ void narrow_partial_complete(
 
   int gt_mask = 0;
   int lt_mask = 0;
-  for (int i = 1; i < NLIMBS; ++i) {
-    temp.limbs[i] = temp.limbs[i] - temp.limbs[0];
-    temp.limbs[i] += 1 & gt_mask;
-    temp.limbs[i] -= 1 & gt_mask;
-    gt_mask = -(temp.limbs[i] > T);
-    lt_mask = -(temp.limbs[i] < 0);
-    temp.limbs[i] -= (T & gt_mask);
-    temp.limbs[i] += (T & lt_mask);
-  }
-  for (int i = 1; i < NLIMBS; ++i) {
-    temp.limbs[i] -= temp.limbs[11];
-  }
-  gt_mask = 0;
-  lt_mask = 0;
-  for (int i = 1; i < NLIMBS - 1; ++i) {
+  for (int i = 0; i < NLIMBS; ++i) {
+    temp.limbs[i] = temp.limbs[i] - temp.limbs[10];
     temp.limbs[i] += 1 & gt_mask;
     temp.limbs[i] -= 1 & lt_mask;
     gt_mask = -(temp.limbs[i] > T);
     lt_mask = -(temp.limbs[i] < 0);
     temp.limbs[i] -= (T & gt_mask);
     temp.limbs[i] += (T & lt_mask);
-    result->limbs[i-1] = temp.limbs[i];
+  }
+  for (int i = 0; i < NLIMBS - 1; ++i) {
+    temp.limbs[i] -= temp.limbs[10];
+  }
+  gt_mask = 0;
+  lt_mask = 0;
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    temp.limbs[i] += 1 & gt_mask;
+    temp.limbs[i] -= 1 & lt_mask;
+    gt_mask = -(temp.limbs[i] > T);
+    lt_mask = -(temp.limbs[i] < 0);
+    temp.limbs[i] -= (T & gt_mask);
+    temp.limbs[i] += (T & lt_mask);
+    result->limbs[i] = temp.limbs[i];
   }
 }
 
@@ -155,15 +151,6 @@ int is_odd(residue_narrow_reduced_t *x) {
     result ^= x->limbs[i] & 0x1;
   }
   return result;
-}
-
-// Copy a 12x64-bit residue
-void copy_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x) {
-
-  for (int i = 0; i < NLIMBS; ++i) {
-    result->limbs[i] = x->limbs[i];
-  }
 }
 
 // Copy a 12x32-bit residue
@@ -215,10 +202,10 @@ void widen(
   _mm512_storeu_si512((__m512i*) &result->limbs[4], wide3);
 }
 
-// Subtract 2 12x64-bit residues.
-void sub_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y) {
+// Subtract 2 12x32-bit residues.
+void sub_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x,
+  const residue_narrow_t * __restrict y) {
 
   for (int i = 0; i < NLIMBS; ++i) {
     result->limbs[i] = x->limbs[i] - y->limbs[i];
@@ -256,13 +243,12 @@ void add_narrow(
   }
 }
 
-// Add 2 12x64-bit residues.
-void add_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y) {
+// Scale a narrow residue by 2.
+void double_narrow(
+  residue_narrow_t *result, const residue_narrow_t *x) {
 
   for (int i = 0; i < NLIMBS; ++i) {
-    result->limbs[i] = x->limbs[i] + y->limbs[i];
+    result->limbs[i] = x->limbs[i] << 1;
   }
 }
 
@@ -295,1780 +281,447 @@ void double_wide(
 //   }
 // }
 
-#define wrap(x) (((x + (NLIMBS - 1)) % (NLIMBS - 1)) + 1)
-// Multiply two wide residues, and produce a wide result. The result is reduced
-// to 32 bits, but not narrowed for performance reasons.
-void mul_wide(
-  residue_wide_t *result, const residue_wide_t *x, const residue_wide_t *y) {
-
-  residue_wide_t temp;
-
-  // Two accumulators
-  __m256i accum10;
-  __m512i accum3;
-
-  // Temporaries for sub sub mul
-  __m512i sublhs_512, subrhs_512, mul_512;
-  __m256i sublhs_256, subrhs_256, mul_256;
-
-  __m512i blend_var_lhs, blend_var_rhs;
-  __m512i blend_const_lhs, blend_const_rhs;
-
-  __m256i blend_var_lhs_256, blend_var_rhs_256;
-  __m256i blend_const_lhs_256, blend_const_rhs_256;
-
-  __mmask16 low4, low8, low12;
-
-  low4 = _cvtu32_mask16(0xf);
-  low8 = _cvtu32_mask16(0xff);
-  low12 = _cvtu32_mask16(0xfff);
-
-  // 8 * [6 7] and 2 * [3 4 5 6 7 8]
-  __m512i lhs_6_7 = _mm512_castsi128_si512(_mm_loadu_si128((__m128i *) &x->limbs[7]));
-  __m512i rhs_6_7 = _mm512_castsi128_si512(_mm_loadu_si128((__m128i *) &y->limbs[7]));
-//   print8x64(lhs_6_7, "lhs_6_7");
-//   print8x64(rhs_6_7, "rhs_6_7");
-
-  __m512i lhs_1_8 = _mm512_loadu_si512((__m512i *) &x->limbs[2]);
-  __m512i rhs_1_8 = _mm512_loadu_si512((__m512i *) &y->limbs[2]);
-
-//   print8x64(lhs_1_8, "lhs_1_8");
-//   print8x64(rhs_1_8, "rhs_1_8");
-
-  __m512i lhs_8 = _mm512_set1_epi32(x->limbs[9]);
-  __m512i rhs_8 = _mm512_set1_epi32(y->limbs[9]);
-
-//   print8x64(lhs_8, "lhs_8");
-//   print8x64(rhs_8, "rhs_8");
-
-  __m512i lhs_2 = _mm512_set1_epi32(x->limbs[3]);
-  __m512i rhs_2 = _mm512_set1_epi32(y->limbs[3]);
-
-//   print8x64(lhs_2, "lhs_2");
-//   print8x64(rhs_2, "rhs_2");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_6_7),
-        [b]     "v"(lhs_1_8));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(rhs_6_7),
-        [b]     "v"(rhs_1_8));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_8),
-        [b]     "v"(lhs_2));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(rhs_8),
-        [b]     "v"(rhs_2));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low4, lhs_6_7, lhs_1_8);
-  blend_var_rhs = _mm512_mask_blend_epi32(low4, rhs_6_7, rhs_1_8);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low4, lhs_8, lhs_2);
-  blend_const_rhs = _mm512_mask_blend_epi32(low4, rhs_8, rhs_2);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  accum3 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [5 6 7 8] and 3 * [4 5 6 7]
-  __m512i lhs_5_8 = _mm512_castsi256_si512(_mm256_loadu_si256((__m256i *) &x->limbs[6]));
-  __m512i rhs_5_8 = _mm512_castsi256_si512(_mm256_loadu_si256((__m256i *) &y->limbs[6]));
-
-//   print8x64(lhs_5_8, "lhs_5_8");
-//   print8x64(rhs_5_8, "rhs_5_8");
-
-  __m512i lhs_0_7 = _mm512_loadu_si512((__m512i *) &x->limbs[1]);
-  __m512i rhs_0_7 = _mm512_loadu_si512((__m512i *) &y->limbs[1]);
-
-//   print8x64(lhs_0_7, "lhs_0_7");
-//   print8x64(rhs_0_7, "rhs_0_7");
-
-  __m512i lhs_9 = _mm512_set1_epi32(x->limbs[10]);
-  __m512i rhs_9 = _mm512_set1_epi32(y->limbs[10]);
-
-//   print8x64(lhs_9, "lhs_9");
-//   print8x64(rhs_9, "rhs_9");
-
-  __m512i lhs_3 = _mm512_set1_epi32(x->limbs[4]);
-  __m512i rhs_3 = _mm512_set1_epi32(y->limbs[4]);
-
-//   print8x64(lhs_3, "lhs_3");
-//   print8x64(rhs_3, "rhs_3");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_5_8),
-        [b]     "v"(lhs_0_7));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(rhs_5_8),
-        [b]     "v"(rhs_0_7));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_9),
-        [b]     "v"(lhs_3));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(rhs_9),
-        [b]     "v"(rhs_3));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low8, lhs_5_8, lhs_0_7);
-  blend_var_rhs = _mm512_mask_blend_epi32(low8, rhs_5_8, rhs_0_7);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low8, lhs_9, lhs_3);
-  blend_const_rhs = _mm512_mask_blend_epi32(low8, rhs_9, rhs_3);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [1 2 3 4] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_9),
-                                _mm512_castsi512_si256(lhs_1_8));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_1_8),
-                                _mm512_castsi512_si256(rhs_9));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  accum10 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(accum10, "accum10");
-
-  // 10 * [4 5 6 7 8 9] and 4 * [5 6]
-  __m512i lhs_4_9 = _mm512_mask_loadu_epi32(_mm512_setzero(), low12, &x->limbs[5]);
-  __m512i rhs_4_9 = _mm512_mask_loadu_epi32(_mm512_setzero(), low12, &y->limbs[5]);
-
-//   print8x64(lhs_4_9, "lhs_4_9");
-//   print8x64(rhs_4_9, "rhs_4_9");
-
-  __m512i lhs_10_6 = _mm512_loadu_si512((__m512i *) &x->limbs[0]);
-  __m512i rhs_10_6 = _mm512_loadu_si512((__m512i *) &y->limbs[0]);
-
-//   print8x64(lhs_10_6, "lhs_10_6");
-//   print8x64(rhs_10_6, "rhs_10_6");
-
-  __m512i lhs_10 = _mm512_set1_epi32(x->limbs[0]);
-  __m512i rhs_10 = _mm512_set1_epi32(y->limbs[0]);
-
-//   print8x64(lhs_10, "lhs_10");
-//   print8x64(rhs_10, "rhs_10");
-
-  __m512i lhs_4 = _mm512_set1_epi32(x->limbs[5]);
-  __m512i rhs_4 = _mm512_set1_epi32(y->limbs[5]);
-
-//   print8x64(lhs_4, "lhs_4");
-//   print8x64(rhs_4, "rhs_4");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_4_9),
-        [b]     "v"(lhs_10_6));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(rhs_4_9),
-        [b]     "v"(rhs_10_6));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_10),
-        [b]     "v"(lhs_4));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(rhs_10),
-        [b]     "v"(rhs_4));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low12, lhs_4_9, lhs_10_6);
-  blend_var_rhs = _mm512_mask_blend_epi32(low12, rhs_4_9, rhs_10_6);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low12, lhs_10, lhs_4);
-  blend_const_rhs = _mm512_mask_blend_epi32(low12, rhs_10, rhs_4);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 10 * [0 1 2 3] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_10),
-                                _mm512_castsi512_si256(lhs_0_7));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_0_7),
-                                _mm512_castsi512_si256(rhs_10));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 0 * [3 4 5 6 7 8 9 10]
-  __m512i lhs_3_10 = _mm512_loadu_si512((__m512i *) &x->limbs[4]);
-  __m512i rhs_3_10 = _mm512_loadu_si512((__m512i *) &y->limbs[4]);
-
-//   print8x64(lhs_3_10, "lhs_3_10");
-//   print8x64(rhs_3_10, "rhs_3_10");
-
-  __m512i lhs_0 = _mm512_set1_epi32(x->limbs[1]);
-  __m512i rhs_0 = _mm512_set1_epi32(y->limbs[1]);
-
-//   print8x64(lhs_0, "lhs_0");
-//   print8x64(rhs_0, "rhs_0");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_0, lhs_3_10);
-  subrhs_512 = _mm512_sub_epi32(rhs_3_10, rhs_0);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 6 * [4 5] and 0 * [1 2]
-  __m256i lhs_6 = _mm256_set1_epi32(x->limbs[7]);
-  __m256i rhs_6 = _mm256_set1_epi32(y->limbs[7]);
-
-//   print4x64(lhs_6, "lhs_6");
-//   print4x64(rhs_6, "rhs_6");
-
-  blend_var_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_10_6),
-                                         _mm512_castsi512_si256(lhs_4_9),
-                                         0x0f);
-  blend_var_rhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(rhs_10_6),
-                                         _mm512_castsi512_si256(rhs_4_9),
-                                         0x0f);
-
-  blend_const_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_0),
-                                           lhs_6,
-                                           0x0f);
-  blend_const_rhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(rhs_0),
-                                           rhs_6,
-                                           0x0f);
-//   print4x64(blend_var_lhs_256, "blend_var_lhs_256");
-//   print4x64(blend_var_rhs_256, "blend_var_rhs_256");
-//   print4x64(blend_const_lhs_256, "blend_const_lhs_256");
-//   print4x64(blend_const_rhs_256, "blend_const_rhs_256");
-
-  sublhs_256 = _mm256_sub_epi32(blend_const_lhs_256, blend_var_lhs_256);
-  subrhs_256 = _mm256_sub_epi32(blend_var_rhs_256, blend_const_rhs_256);
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 7 * [3 4 5 6]
-  __m256i lhs_7 = _mm256_set1_epi32(x->limbs[8]);
-  __m256i rhs_7 = _mm256_set1_epi32(y->limbs[8]);
-
-//   print4x64(lhs_7, "lhs_7");
-//   print4x64(rhs_7, "rhs_7");
-
-  sublhs_256 = _mm256_sub_epi32(lhs_7, _mm512_castsi512_si256(lhs_3_10));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_3_10), rhs_7);
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 1 * [2 3 4 5 6 7 8 9]
-  __m512i lhs_2_9 = _mm512_loadu_si512((__m512i *) &x->limbs[3]);
-  __m512i rhs_2_9 = _mm512_loadu_si512((__m512i *) &y->limbs[3]);
-
-//   print8x64(lhs_2_9, "lhs_2_9");
-//   print8x64(rhs_2_9, "rhs_2_9");
-
-  __m512i lhs_1 = _mm512_set1_epi32(x->limbs[2]);
-  __m512i rhs_1 = _mm512_set1_epi32(y->limbs[2]);
-
-//   print8x64(lhs_1, "lhs_1");
-//   print8x64(rhs_1, "rhs_1");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_1, lhs_2_9);
-  subrhs_512 = _mm512_sub_epi32(rhs_2_9, rhs_1);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  _mm512_storeu_si512((__m512i*) &temp.limbs[4], accum3);
-
-  // 8 * [2 3 4 5]
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_8),
-                                _mm512_castsi512_si256(lhs_2_9));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_2_9),
-                                _mm512_castsi512_si256(rhs_8));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-  _mm256_store_si256((__m256i*) &temp.limbs[0], accum10);
-
-  reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
-}
-
-void mul_wide_narrow_slow(
-  residue_wide_t *result, const residue_wide_t *x, const residue_narrow_t *y) {
-  residue_wide_t y_temp;
-  widen(&y_temp, y);
-  mul_wide(result, x, &y_temp);
-}
-// Multiply a wide residues by a narrow and produce a wide result. The result is
-// reduced to 32 bits, but not narrowed for performance reasons.
-void mul_wide_narrow(
-  residue_wide_t *result, const residue_wide_t *x, const residue_narrow_t *y) {
-
-  residue_wide_t temp;
-
-  // Two accumulators
-  __m256i accum10;
-  __m512i accum3;
-
-  // Temporaries for sub sub mul
-  __m512i sublhs_512, subrhs_512, mul_512;
-  __m256i sublhs_256, subrhs_256, mul_256;
-
-  __m512i blend_var_lhs, blend_var_rhs;
-  __m512i blend_const_lhs, blend_const_rhs;
-
-  __m256i blend_var_lhs_256, blend_var_rhs_256;
-  __m256i blend_const_lhs_256, blend_const_rhs_256;
-
-  __mmask16 low4, low8, low12;
-
-  low4 = _cvtu32_mask16(0xf);
-  low8 = _cvtu32_mask16(0xff);
-  low12 = _cvtu32_mask16(0xfff);
-
-  // 8 * [6 7] and 2 * [3 4 5 6 7 8]
-  __m512i lhs_6_7 = _mm512_castsi128_si512(_mm_loadu_si128((__m128i *) &x->limbs[7]));
-  __m512i rhs_6_7 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &y->limbs[7]));
-//   print8x64(lhs_6_7, "lhs_6_7");
-//   print8x64(rhs_6_7, "rhs_6_7");
-
-  __m512i lhs_1_8 = _mm512_loadu_si512((__m512i *) &x->limbs[2]);
-  __m512i rhs_1_8 = loadu512_extend_32_64((__m256i *) &y->limbs[2]);
-
-//   print8x64(lhs_1_8, "lhs_1_8");
-//   print8x64(rhs_1_8, "rhs_1_8");
-
-  __m512i lhs_8 = _mm512_set1_epi32(x->limbs[9]);
-  __m512i rhs_8 = _mm512_set1_epi32(y->limbs[9]);
-
-//   print8x64(lhs_8, "lhs_8");
-//   print8x64(rhs_8, "rhs_8");
-
-  __m512i lhs_2 = _mm512_set1_epi32(x->limbs[3]);
-  __m512i rhs_2 = _mm512_set1_epi32(y->limbs[3]);
-
-//   print8x64(lhs_2, "lhs_2");
-//   print8x64(rhs_2, "rhs_2");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_6_7),
-        [b]     "v"(lhs_1_8));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(rhs_6_7),
-        [b]     "v"(rhs_1_8));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_8),
-        [b]     "v"(lhs_2));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(rhs_8),
-        [b]     "v"(rhs_2));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low4, lhs_6_7, lhs_1_8);
-  blend_var_rhs = _mm512_mask_blend_epi32(low4, rhs_6_7, rhs_1_8);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low4, lhs_8, lhs_2);
-  blend_const_rhs = _mm512_mask_blend_epi32(low4, rhs_8, rhs_2);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  accum3 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [5 6 7 8] and 3 * [4 5 6 7]
-  __m512i lhs_5_8 = _mm512_castsi256_si512(_mm256_loadu_si256((__m256i *) &x->limbs[6]));
-  __m512i rhs_5_8 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &y->limbs[6]));
-
-//   print8x64(lhs_5_8, "lhs_5_8");
-//   print8x64(rhs_5_8, "rhs_5_8");
-
-  __m512i lhs_0_7 = _mm512_loadu_si512((__m512i *) &x->limbs[1]);
-  __m512i rhs_0_7 = loadu512_extend_32_64((__m256i *) &y->limbs[1]);
-
-//   print8x64(lhs_0_7, "lhs_0_7");
-//   print8x64(rhs_0_7, "rhs_0_7");
-
-  __m512i lhs_9 = _mm512_set1_epi32(x->limbs[10]);
-  __m512i rhs_9 = _mm512_set1_epi32(y->limbs[10]);
-
-//   print8x64(lhs_9, "lhs_9");
-//   print8x64(rhs_9, "rhs_9");
-
-  __m512i lhs_3 = _mm512_set1_epi32(x->limbs[4]);
-  __m512i rhs_3 = _mm512_set1_epi32(y->limbs[4]);
-
-//   print8x64(lhs_3, "lhs_3");
-//   print8x64(rhs_3, "rhs_3");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_5_8),
-        [b]     "v"(lhs_0_7));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(rhs_5_8),
-        [b]     "v"(rhs_0_7));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_9),
-        [b]     "v"(lhs_3));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(rhs_9),
-        [b]     "v"(rhs_3));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low8, lhs_5_8, lhs_0_7);
-  blend_var_rhs = _mm512_mask_blend_epi32(low8, rhs_5_8, rhs_0_7);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low8, lhs_9, lhs_3);
-  blend_const_rhs = _mm512_mask_blend_epi32(low8, rhs_9, rhs_3);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [1 2 3 4] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_9),
-                                _mm512_castsi512_si256(lhs_1_8));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_1_8),
-                                _mm512_castsi512_si256(rhs_9));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  accum10 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(accum10, "accum10");
-
-  // 10 * [4 5 6 7 8 9] and 4 * [5 6]
-  __m512i lhs_4_9 = _mm512_mask_loadu_epi32(_mm512_setzero(), low12, &x->limbs[5]);
-  __m512i rhs_4_9 = loadu512_mask_extend_32_64((__m256i *) &y->limbs[5], _cvtu32_mask8(0x3f));
-
-//   print8x64(lhs_4_9, "lhs_4_9");
-//   print8x64(rhs_4_9, "rhs_4_9");
-
-  __m512i lhs_10_6 = _mm512_loadu_si512((__m512i *) &x->limbs[0]);
-  __m512i rhs_10_6 = loadu512_extend_32_64((__m256i *) &y->limbs[0]);
-
-//   print8x64(lhs_10_6, "lhs_10_6");
-//   print8x64(rhs_10_6, "rhs_10_6");
-
-  __m512i lhs_10 = _mm512_set1_epi32(x->limbs[0]);
-  __m512i rhs_10 = _mm512_set1_epi32(y->limbs[0]);
-
-//   print8x64(lhs_10, "lhs_10");
-//   print8x64(rhs_10, "rhs_10");
-
-  __m512i lhs_4 = _mm512_set1_epi32(x->limbs[5]);
-  __m512i rhs_4 = _mm512_set1_epi32(y->limbs[5]);
-
-//   print8x64(lhs_4, "lhs_4");
-//   print8x64(rhs_4, "rhs_4");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_4_9),
-        [b]     "v"(lhs_10_6));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(rhs_4_9),
-        [b]     "v"(rhs_10_6));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_10),
-        [b]     "v"(lhs_4));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(rhs_10),
-        [b]     "v"(rhs_4));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low12, lhs_4_9, lhs_10_6);
-  blend_var_rhs = _mm512_mask_blend_epi32(low12, rhs_4_9, rhs_10_6);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low12, lhs_10, lhs_4);
-  blend_const_rhs = _mm512_mask_blend_epi32(low12, rhs_10, rhs_4);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 10 * [0 1 2 3] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_10),
-                                _mm512_castsi512_si256(lhs_0_7));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_0_7),
-                                _mm512_castsi512_si256(rhs_10));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 0 * [3 4 5 6 7 8 9 10]
-  __m512i lhs_3_10 = _mm512_loadu_si512((__m512i *) &x->limbs[4]);
-  __m512i rhs_3_10 = loadu512_extend_32_64((__m256i *) &y->limbs[4]);
-
-//   print8x64(lhs_3_10, "lhs_3_10");
-//   print8x64(rhs_3_10, "rhs_3_10");
-
-  __m512i lhs_0 = _mm512_set1_epi32(x->limbs[1]);
-  __m512i rhs_0 = _mm512_set1_epi32(y->limbs[1]);
-
-//   print8x64(lhs_0, "lhs_0");
-//   print8x64(rhs_0, "rhs_0");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_0, lhs_3_10);
-  subrhs_512 = _mm512_sub_epi32(rhs_3_10, rhs_0);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 6 * [4 5] and 0 * [1 2]
-  __m256i lhs_6 = _mm256_set1_epi32(x->limbs[7]);
-  __m256i rhs_6 = _mm256_set1_epi32(y->limbs[7]);
-
-//   print4x64(lhs_6, "lhs_6");
-//   print4x64(rhs_6, "rhs_6");
-
-  blend_var_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_10_6),
-                                         _mm512_castsi512_si256(lhs_4_9),
-                                         0x0f);
-  blend_var_rhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(rhs_10_6),
-                                         _mm512_castsi512_si256(rhs_4_9),
-                                         0x0f);
-
-  blend_const_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_0),
-                                           lhs_6,
-                                           0x0f);
-  blend_const_rhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(rhs_0),
-                                           rhs_6,
-                                           0x0f);
-//   print4x64(blend_var_lhs_256, "blend_var_lhs_256");
-//   print4x64(blend_var_rhs_256, "blend_var_rhs_256");
-//   print4x64(blend_const_lhs_256, "blend_const_lhs_256");
-//   print4x64(blend_const_rhs_256, "blend_const_rhs_256");
-
-  sublhs_256 = _mm256_sub_epi32(blend_const_lhs_256, blend_var_lhs_256);
-  subrhs_256 = _mm256_sub_epi32(blend_var_rhs_256, blend_const_rhs_256);
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 7 * [3 4 5 6]
-  __m256i lhs_7 = _mm256_set1_epi32(x->limbs[8]);
-  __m256i rhs_7 = _mm256_set1_epi32(y->limbs[8]);
-
-//   print4x64(lhs_7, "lhs_7");
-//   print4x64(rhs_7, "rhs_7");
-
-  sublhs_256 = _mm256_sub_epi32(lhs_7, _mm512_castsi512_si256(lhs_3_10));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_3_10), rhs_7);
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 1 * [2 3 4 5 6 7 8 9]
-  __m512i lhs_2_9 = _mm512_loadu_si512((__m512i *) &x->limbs[3]);
-  __m512i rhs_2_9 = loadu512_extend_32_64((__m256i *) &y->limbs[3]);
-
-//   print8x64(lhs_2_9, "lhs_2_9");
-//   print8x64(rhs_2_9, "rhs_2_9");
-
-  __m512i lhs_1 = _mm512_set1_epi32(x->limbs[2]);
-  __m512i rhs_1 = _mm512_set1_epi32(y->limbs[2]);
-
-//   print8x64(lhs_1, "lhs_1");
-//   print8x64(rhs_1, "rhs_1");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_1, lhs_2_9);
-  subrhs_512 = _mm512_sub_epi32(rhs_2_9, rhs_1);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  _mm512_storeu_si512((__m512i*) &temp.limbs[4], accum3);
-
-  // 8 * [2 3 4 5]
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_8),
-                                _mm512_castsi512_si256(lhs_2_9));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_2_9),
-                                _mm512_castsi512_si256(rhs_8));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-  _mm256_store_si256((__m256i*) &temp.limbs[0], accum10);
-
-  reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
-}
+// static void print16x32(__m512i x, const char * preamble) {
+//   uint32_t x_vals[16];
+//   memcpy(x_vals, &x, sizeof(x_vals));
+//   printf("%s\n", preamble);
+//   for (int i = 0; i < 16; ++i) {
+//     printf("%#x\n", x_vals[i]);
+//   }
+// }
+
+// The swaps below trade 32 bit words within 128 bit lanes
+// in low endian order: 01 00 11 10
+// in big endian order 10 11 00 01 = 0xb1
+#define SWAP_32 0xb1
 
 // Multiply two narrow residues and produce a wide result. The result is reduced
 // to 32 bits, but not narrowed for performance reasons.
 void mul_narrow(
-  residue_wide_t *result, const residue_narrow_t *x,
+  residue_narrow_t *result, const residue_narrow_t *x,
   const residue_narrow_t *y) {
 
   residue_wide_t temp;
 
-  // Two accumulators
-  __m256i accum10;
-  __m512i accum3;
+  __m512i lhs_source = _mm512_load_si512((__m512i *) &x->limbs[0]);
+  __m512i rhs_source = _mm512_load_si512((__m512i *) &y->limbs[0]);
 
-  // Temporaries for sub sub mul
-  __m512i sublhs_512, subrhs_512, mul_512;
-  __m256i sublhs_256, subrhs_256, mul_256;
+  // General overview:
+  // Take advantage of the symmetry in the cyclical convolution structure in the
+  // original Granger Moss Paper
+  // Here's the table:
+  // Each pair of numbers n,m is shorthand for (x_n - x_m)(y_m - y_n)
+  // 10 1    9  2    8  3    7  4    6  5
+  // 5  7    4  8    3  9    2 10    1  0
+  // 0  2    10 3    9  4    8  5    7  6
+  // 6  8    5  9    4 10    3  0    2  1
+  // 1  3    0  4    10 5    9  6    8  7
+  // 7  9    6 10    5  0    4  1    3  2
+  // 2  4    1  5    0  6    10 7    9  8
+  // 8 10    7  0    6  1    5  2    4  3
+  // --- Invisible break here ---
+  // 3  5    2  6    1  7    0  8    10 9
+  // 9  0    8  1    7  2    6  3    5  4
+  // 4  6    3  7    2  8    1  9    0 10
 
-  __m512i blend_var_lhs, blend_var_rhs;
-  __m512i blend_const_lhs, blend_const_rhs;
+  // Note that the sequence is the same in the columns. Wherever 10 appears, 4
+  // is above it and 5 is below.
+  // The invisible break is at the first 8 elements: 512 bits for 64 bit results
+  // The column starting with 0 doesn't appear at the top, and the column
+  // starting with 4 doesn't appear after the break. It happens that if we
+  // alternate top/bottom/top/bottom, starting with the pairing using column 4,
+  // we go until we end up with the bottom pairing using column 0:
+  // 4  7    1 10    9  2    6  5    3  8
+  // 10 2    7  5    4  8    1  0    9  3
+  // 5  8    2  0    10 3    7  6    4  9
+  // 0  3    8  6    3  9    2  1    10 4      -- Middle 4 rows elided
+  //     7  1    10 9    2  6    5  3    8  0
+  //     2  7    5  4    8  1    0  9    3  6
+  //     8  2    0 10    3  7    6  4    9  1
 
-  __m256i blend_var_lhs_256, blend_var_rhs_256;
-  __m256i blend_const_lhs_256, blend_const_rhs_256;
+  // Low slots: 4, 10, 5, 0, 6, 1, 7, 2
+  // High slots: 1, 7, 2, 8, 3, 9, 4, 10
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_4_then_1[16] = {
+    4, 1, 10, 7, 5, 2, 0, 8, 6, 3, 1, 9, 7, 4, 2, 10,
+  };
 
-  __mmask16 low4, low8, low12;
+  // Low slots: 7, 2, 8, 3, 9, 4, 10, 5
+  // High slots: 10, 5, 0, 6, 1, 7, 2, 8
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_7_then_10[16] = {
+    7, 10, 2, 5, 8, 0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8,
+  };
 
-  low4 = _cvtu32_mask16(0xf);
-  low8 = _cvtu32_mask16(0xff);
-  low12 = _cvtu32_mask16(0xfff);
+  // Low slots: 9, 4, 10, 5, 0, 6, 1, 7
+  // High slots: 6, 1, 7, 2, 8, 3, 9, 4
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_9_then_6[16] = {
+    9, 6, 4, 1, 10, 7, 5, 2, 0, 8, 6, 3, 1, 9, 7, 4,
+  };
 
-  // 8 * [6 7] and 2 * [3 4 5 6 7 8]
-  __m512i lhs_6_7 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &x->limbs[7]));
-  __m512i rhs_6_7 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &y->limbs[7]));
-//   print8x64(lhs_6_7, "lhs_6_7");
-//   print8x64(rhs_6_7, "rhs_6_7");
+  // Low slots: 2, 8, 3, 9, 4, 10, 5, 0
+  // High slots: 5, 0, 6, 1, 7, 2, 8, 3
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_2_then_5[16] = {
+    2, 5, 8, 0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8, 0, 3
+  };
 
-  __m512i lhs_1_8 = loadu512_extend_32_64((__m256i *) &x->limbs[2]);
-  __m512i rhs_1_8 = loadu512_extend_32_64((__m256i *) &y->limbs[2]);
+  // Low slots: 3, 9, 4, 10, 5, 0, 6, 1
+  // High slots: 0, 6, 1, 7, 2, 8, 3, 9
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_3_then_0[16] = {
+    3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 0, 8, 6, 3, 1, 9
+  };
 
-//   print8x64(lhs_1_8, "lhs_1_8");
-//   print8x64(rhs_1_8, "rhs_1_8");
+  // Low slots: 8, 3, 9, 4, 10, 5, 0, 6
+  // High slots: (Don't care) 1-15 odds. Passthrough.
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_8[16] = {
+    8, 1, 3, 3, 9, 5, 4, 7, 10, 9, 5, 11, 0, 13, 6, 15,
+  };
 
-  __m512i lhs_8 = _mm512_set1_epi32(x->limbs[9]);
-  __m512i rhs_8 = _mm512_set1_epi32(y->limbs[9]);
+  // Permutation to collapse the reduction result.
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_final_result[16] = {
+    0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+  };
 
-//   print8x64(lhs_8, "lhs_8");
-//   print8x64(rhs_8, "rhs_8");
+  __m512i _permute_4_then_1 = _mm512_load_si512(permute_4_then_1);
+  __m512i _permute_7_then_10 = _mm512_load_si512(permute_7_then_10);
+  __m512i _permute_9_then_6 = _mm512_load_si512(permute_9_then_6);
+  __m512i _permute_2_then_5 = _mm512_load_si512(permute_2_then_5);
+  __m512i _permute_3_then_0 = _mm512_load_si512(permute_3_then_0);
+  __m512i _permute_8 = _mm512_load_si512(permute_8);
+  __m512i _permute_final_result = _mm512_load_si512(permute_final_result);
 
-  __m512i lhs_2 = _mm512_set1_epi32(x->limbs[3]);
-  __m512i rhs_2 = _mm512_set1_epi32(y->limbs[3]);
+  __m512i lhs_4 = _mm512_permutexvar_epi32(_permute_4_then_1, lhs_source);
+  __m512i lhs_7 = _mm512_permutexvar_epi32(_permute_7_then_10, lhs_source);
+  __m512i rhs_4 = _mm512_permutexvar_epi32(_permute_4_then_1, rhs_source);
+  __m512i rhs_7 = _mm512_permutexvar_epi32(_permute_7_then_10, rhs_source);
 
-//   print8x64(lhs_2, "lhs_2");
-//   print8x64(rhs_2, "rhs_2");
+  __m512i lhs_9 = _mm512_permutexvar_epi32(_permute_9_then_6, lhs_source);
+  __m512i rhs_9 = _mm512_permutexvar_epi32(_permute_9_then_6, rhs_source);
 
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_6_7),
-        [b]     "v"(lhs_1_8));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(rhs_6_7),
-        [b]     "v"(rhs_1_8));
+  __m512i sublhs_512 = _mm512_sub_epi32(lhs_4, lhs_7);
+  __m512i subrhs_512 = _mm512_sub_epi32(rhs_7, rhs_4);
 
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_8),
-        [b]     "v"(lhs_2));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(rhs_8),
-        [b]     "v"(rhs_2));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low4, lhs_6_7, lhs_1_8);
-  blend_var_rhs = _mm512_mask_blend_epi32(low4, rhs_6_7, rhs_1_8);
+  __m512i accum0 = _mm512_mul_epi32(sublhs_512, subrhs_512);
+  // We use a permute and a shift to accomplish the same thing so that they can
+  // execute in parallel.
+  __m512i lhs_1 = _mm512_srli_epi64(lhs_4, 32);
+  __m512i rhs_1 = _mm512_shuffle_epi32(rhs_4, SWAP_32);
 
-  blend_const_lhs = _mm512_mask_blend_epi32(low4, lhs_8, lhs_2);
-  blend_const_rhs = _mm512_mask_blend_epi32(low4, rhs_8, rhs_2);
-#endif
+  __m256i sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_1),
+                                        _mm512_castsi512_si256(lhs_7));
+  __m256i subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_7),
+                                        _mm512_castsi512_si256(rhs_1));
+  __m256i accum8 = _mm256_mul_epi32(sublhs_256, subrhs_256);
 
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
+  __m512i lhs_10 = _mm512_srli_epi64(lhs_7, 32);
+  __m512i rhs_10 = _mm512_shuffle_epi32(rhs_7, SWAP_32);
 
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
+  // Interleaved here for latency hiding.
+  __m512i lhs_2 = _mm512_permutexvar_epi32(_permute_2_then_5, lhs_source);
+  sublhs_512 = _mm512_sub_epi32(lhs_10, lhs_1);
+  subrhs_512 = _mm512_sub_epi32(rhs_1, rhs_10);
 
-  accum3 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(accum3, "accum3");
+  __m512i rhs_2 = _mm512_permutexvar_epi32(_permute_2_then_5, rhs_source);
+  __m512i accum0_temp = _mm512_mul_epi32(sublhs_512, subrhs_512);
 
-  // 9 * [5 6 7 8] and 3 * [4 5 6 7]
-  __m512i lhs_5_8 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &x->limbs[6]));
-  __m512i rhs_5_8 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &y->limbs[6]));
-
-//   print8x64(lhs_5_8, "lhs_5_8");
-//   print8x64(rhs_5_8, "rhs_5_8");
-
-  __m512i lhs_0_7 = loadu512_extend_32_64((__m256i *) &x->limbs[1]);
-  __m512i rhs_0_7 = loadu512_extend_32_64((__m256i *) &y->limbs[1]);
-
-//   print8x64(lhs_0_7, "lhs_0_7");
-//   print8x64(rhs_0_7, "rhs_0_7");
-
-  __m512i lhs_9 = _mm512_set1_epi32(x->limbs[10]);
-  __m512i rhs_9 = _mm512_set1_epi32(y->limbs[10]);
-
-//   print8x64(lhs_9, "lhs_9");
-//   print8x64(rhs_9, "rhs_9");
-
-  __m512i lhs_3 = _mm512_set1_epi32(x->limbs[4]);
-  __m512i rhs_3 = _mm512_set1_epi32(y->limbs[4]);
-
-//   print8x64(lhs_3, "lhs_3");
-//   print8x64(rhs_3, "rhs_3");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_5_8),
-        [b]     "v"(lhs_0_7));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(rhs_5_8),
-        [b]     "v"(rhs_0_7));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_9),
-        [b]     "v"(lhs_3));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(rhs_9),
-        [b]     "v"(rhs_3));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low8, lhs_5_8, lhs_0_7);
-  blend_var_rhs = _mm512_mask_blend_epi32(low8, rhs_5_8, rhs_0_7);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low8, lhs_9, lhs_3);
-  blend_const_rhs = _mm512_mask_blend_epi32(low8, rhs_9, rhs_3);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [1 2 3 4] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_9),
-                                _mm512_castsi512_si256(lhs_1_8));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_1_8),
-                                _mm512_castsi512_si256(rhs_9));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  accum10 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(accum10, "accum10");
-
-  // 10 * [4 5 6 7 8 9] and 4 * [5 6]
-  __m512i lhs_4_9 = loadu512_mask_extend_32_64((__m256i *) &x->limbs[5], _cvtu32_mask8(0x3f));
-  __m512i rhs_4_9 = loadu512_mask_extend_32_64((__m256i *) &y->limbs[5], _cvtu32_mask8(0x3f));
-
-//   print8x64(lhs_4_9, "lhs_4_9");
-//   print8x64(rhs_4_9, "rhs_4_9");
-
-  __m512i lhs_10_6 = loadu512_extend_32_64((__m256i *) &x->limbs[0]);
-  __m512i rhs_10_6 = loadu512_extend_32_64((__m256i *) &y->limbs[0]);
-
-//   print8x64(lhs_10_6, "lhs_10_6");
-//   print8x64(rhs_10_6, "rhs_10_6");
-
-  __m512i lhs_10 = _mm512_set1_epi32(x->limbs[0]);
-  __m512i rhs_10 = _mm512_set1_epi32(y->limbs[0]);
-
-//   print8x64(lhs_10, "lhs_10");
-//   print8x64(rhs_10, "rhs_10");
-
-  __m512i lhs_4 = _mm512_set1_epi32(x->limbs[5]);
-  __m512i rhs_4 = _mm512_set1_epi32(y->limbs[5]);
-
-//   print8x64(lhs_4, "lhs_4");
-//   print8x64(rhs_4, "rhs_4");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_4_9),
-        [b]     "v"(lhs_10_6));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_rhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(rhs_4_9),
-        [b]     "v"(rhs_10_6));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_10),
-        [b]     "v"(lhs_4));
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_rhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(rhs_10),
-        [b]     "v"(rhs_4));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low12, lhs_4_9, lhs_10_6);
-  blend_var_rhs = _mm512_mask_blend_epi32(low12, rhs_4_9, rhs_10_6);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low12, lhs_10, lhs_4);
-  blend_const_rhs = _mm512_mask_blend_epi32(low12, rhs_10, rhs_4);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_var_rhs, "blend_var_rhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-//   print8x64(blend_const_rhs, "blend_const_rhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-  subrhs_512 = _mm512_sub_epi32(blend_var_rhs, blend_const_rhs);
-
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 10 * [0 1 2 3] Done here because we have loaded everything already.
   sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_10),
-                                _mm512_castsi512_si256(lhs_0_7));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_0_7),
+                                _mm512_castsi512_si256(lhs_9));
+  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_9),
                                 _mm512_castsi512_si256(rhs_10));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
+  __m256i accum8_temp = _mm256_mul_epi32(sublhs_256, subrhs_256);
 
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
+  accum0 = _mm512_add_epi64(accum0, accum0_temp);
+  accum8 = _mm256_add_epi64(accum8, accum8_temp);
 
-  // 0 * [3 4 5 6 7 8 9 10]
-  __m512i lhs_3_10 = loadu512_extend_32_64((__m256i *) &x->limbs[4]);
-  __m512i rhs_3_10 = loadu512_extend_32_64((__m256i *) &y->limbs[4]);
+  sublhs_512 = _mm512_sub_epi32(lhs_9, lhs_2);
+  subrhs_512 = _mm512_sub_epi32(rhs_2, rhs_9);
+  accum0_temp = _mm512_mul_epi32(sublhs_512, subrhs_512);
 
-//   print8x64(lhs_3_10, "lhs_3_10");
-//   print8x64(rhs_3_10, "rhs_3_10");
+  __m512i lhs_6 = _mm512_srli_epi64(lhs_9, 32);
+  __m512i rhs_6 = _mm512_shuffle_epi32(rhs_9, SWAP_32);
 
-  __m512i lhs_0 = _mm512_set1_epi32(x->limbs[1]);
-  __m512i rhs_0 = _mm512_set1_epi32(y->limbs[1]);
+  __m512i lhs_3 = _mm512_permutexvar_epi32(_permute_3_then_0, lhs_source);
+  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_2),
+                                _mm512_castsi512_si256(lhs_6));
+  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_6),
+                                _mm512_castsi512_si256(rhs_2));
 
-//   print8x64(lhs_0, "lhs_0");
-//   print8x64(rhs_0, "rhs_0");
+  __m512i rhs_3 = _mm512_permutexvar_epi32(_permute_3_then_0, rhs_source);
+  accum8_temp = _mm256_mul_epi32(sublhs_256, subrhs_256);
+  accum0 = _mm512_add_epi64(accum0, accum0_temp);
+  accum8 = _mm256_add_epi64(accum8, accum8_temp);
 
-  sublhs_512 = _mm512_sub_epi32(lhs_0, lhs_3_10);
-  subrhs_512 = _mm512_sub_epi32(rhs_3_10, rhs_0);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
+  __m512i lhs_5 = _mm512_srli_epi64(lhs_2, 32);
+  __m512i rhs_5 = _mm512_shuffle_epi32(rhs_2, SWAP_32);
 
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
+  __m512i lhs_8 = _mm512_permutexvar_epi32(_permute_8, lhs_source);
+  sublhs_512 = _mm512_sub_epi32(lhs_6, lhs_5);
+  subrhs_512 = _mm512_sub_epi32(rhs_5, rhs_6);
+  __m512i rhs_8 = _mm512_permutexvar_epi32(_permute_8, rhs_source);
+  accum0_temp = _mm512_mul_epi32(sublhs_512, subrhs_512);
 
-  // 6 * [4 5] and 0 * [1 2]
-  __m256i lhs_6 = _mm256_set1_epi32(x->limbs[7]);
-  __m256i rhs_6 = _mm256_set1_epi32(y->limbs[7]);
+  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_3),
+                                _mm512_castsi512_si256(lhs_5));
+  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_5),
+                                _mm512_castsi512_si256(rhs_3));
+  accum8_temp = _mm256_mul_epi32(sublhs_256, subrhs_256);
+  accum0 = _mm512_add_epi64(accum0, accum0_temp);
+  accum8 = _mm256_add_epi64(accum8, accum8_temp);
 
-//   print4x64(lhs_6, "lhs_6");
-//   print4x64(rhs_6, "rhs_6");
+  sublhs_512 = _mm512_sub_epi32(lhs_8, lhs_3);
+  subrhs_512 = _mm512_sub_epi32(rhs_3, rhs_8);
+  accum0_temp = _mm512_mul_epi32(sublhs_512, subrhs_512);
 
-  blend_var_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_10_6),
-                                         _mm512_castsi512_si256(lhs_4_9),
-                                         0x0f);
-  blend_var_rhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(rhs_10_6),
-                                         _mm512_castsi512_si256(rhs_4_9),
-                                         0x0f);
+  __m512i lhs_0 = _mm512_srli_epi64(lhs_3, 32);
+  __m512i rhs_0 = _mm512_shuffle_epi32(rhs_3, SWAP_32);
 
-  blend_const_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_0),
-                                           lhs_6,
-                                           0x0f);
-  blend_const_rhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(rhs_0),
-                                           rhs_6,
-                                           0x0f);
-//   print4x64(blend_var_lhs_256, "blend_var_lhs_256");
-//   print4x64(blend_var_rhs_256, "blend_var_rhs_256");
-//   print4x64(blend_const_lhs_256, "blend_const_lhs_256");
-//   print4x64(blend_const_rhs_256, "blend_const_rhs_256");
+  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_0),
+                                _mm512_castsi512_si256(lhs_8));
+  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_8),
+                                _mm512_castsi512_si256(rhs_0));
+  accum8_temp = _mm256_mul_epi32(sublhs_256, subrhs_256);
+  accum0 = _mm512_add_epi64(accum0, accum0_temp);
+  accum8 = _mm256_add_epi64(accum8, accum8_temp);
 
-  sublhs_256 = _mm256_sub_epi32(blend_const_lhs_256, blend_var_lhs_256);
-  subrhs_256 = _mm256_sub_epi32(blend_var_rhs_256, blend_const_rhs_256);
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 7 * [3 4 5 6]
-  __m256i lhs_7 = _mm256_set1_epi32(x->limbs[8]);
-  __m256i rhs_7 = _mm256_set1_epi32(y->limbs[8]);
-
-//   print4x64(lhs_7, "lhs_7");
-//   print4x64(rhs_7, "rhs_7");
-
-  sublhs_256 = _mm256_sub_epi32(lhs_7, _mm512_castsi512_si256(lhs_3_10));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_3_10), rhs_7);
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 1 * [2 3 4 5 6 7 8 9]
-  __m512i lhs_2_9 = loadu512_extend_32_64((__m256i *) &x->limbs[3]);
-  __m512i rhs_2_9 = loadu512_extend_32_64((__m256i *) &y->limbs[3]);
-
-//   print8x64(lhs_2_9, "lhs_2_9");
-//   print8x64(rhs_2_9, "rhs_2_9");
-
-  __m512i lhs_1 = _mm512_set1_epi32(x->limbs[2]);
-  __m512i rhs_1 = _mm512_set1_epi32(y->limbs[2]);
-
-//   print8x64(lhs_1, "lhs_1");
-//   print8x64(rhs_1, "rhs_1");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_1, lhs_2_9);
-  subrhs_512 = _mm512_sub_epi32(rhs_2_9, rhs_1);
-//   print8x64(sublhs_512, "sublhs_512");
-//   print8x64(subrhs_512, "subrhs_512");
-  mul_512 = _mm512_mul_epi32(sublhs_512, subrhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_add_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  _mm512_storeu_si512((__m512i*) &temp.limbs[4], accum3);
-
-  // 8 * [2 3 4 5]
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_8),
-                                _mm512_castsi512_si256(lhs_2_9));
-  subrhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(rhs_2_9),
-                                _mm512_castsi512_si256(rhs_8));
-//   print4x64(sublhs_256, "sublhs_256");
-//   print4x64(subrhs_256, "subrhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, subrhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_add_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-  _mm256_store_si256((__m256i*) &temp.limbs[0], accum10);
-
+  _mm512_store_si512((__m512i*) &temp.limbs[0], accum0);
+  _mm256_store_si256((__m256i*) &temp.limbs[8], accum8);
   reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
+  reduce_step_wide(&temp, &temp);
+  accum0 = _mm512_load_si512((__m512i*) &temp.limbs[0]);
+  accum8 = _mm256_load_si256((__m256i*) &temp.limbs[8]);
+  __m512i final_result = _mm512_permutex2var_epi32(
+    accum0, _permute_final_result, _mm512_castsi256_si512(accum8));
+  _mm512_store_si512((__m512i*) &result->limbs[0], final_result);
 }
 
-// Multiply a wide residue by a small constant. The result is reduced to 32
-// bits, but not narrowed for performance reasons.
-void mul_wide_const(
-  residue_wide_t *result, const residue_wide_t *x, int32_t d) {
+static const int32_t permute_final_result[16] = {
+  0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+};
+
+// Multiply a narrow residue by a small constant. The result is reduced to 32
+// bits.
+void mul_narrow_const(
+  residue_narrow_t *result, const residue_narrow_t *x, int32_t d) {
 
   residue_wide_t temp;
   for (int i = 0; i < NLIMBS; ++i) {
-    temp.limbs[i] = x->limbs[i] * d;
-  }
-  reduce_step_wide(result, &temp);
-}
-
-// Multiply a narrow residue by a small constant. The result is reduced to 32
-// bits, but not narrowed for performance reasons.
-void mul_narrow_const(
-  residue_wide_t *result, const residue_narrow_t *x, int32_t d) {
-
-  residue_wide_t temp;
-  for (int i = 0; i < NLIMBS - 1; ++i) {
     temp.limbs[i] = ((uint64_t) x->limbs[i]) * d;
   }
-  reduce_step_wide(result, &temp);
-}
-
-// Square a wide residue and produce a wide result. The result is reduced to 32
-// bits but not narrowed for performance reasons.
-void square_wide(
-  residue_wide_t *result, const residue_wide_t *x) {
-
-  residue_wide_t temp;
-
-  // Two accumulators
-  __m512i accum3 = _mm512_setzero();
-  __m256i accum10 = _mm256_setzero_si256();
-
-  // Temporaries for sub sub mul
-  __m512i sublhs_512, mul_512;
-  __m256i sublhs_256, mul_256;
-
-  __m512i blend_var_lhs;
-  __m512i blend_const_lhs;
-
-  __m256i blend_var_lhs_256;
-  __m256i blend_const_lhs_256;
-
-  __mmask16 low4, low8, low12;
-
-  low4 = _cvtu32_mask16(0xf);
-  low8 = _cvtu32_mask16(0xff);
-  low12 = _cvtu32_mask16(0xfff);
-
-  // 8 * [6 7] and 2 * [3 4 5 6 7 8]
-  __m512i lhs_6_7 = _mm512_castsi128_si512(_mm_loadu_si128((__m128i *) &x->limbs[7]));
-//   print8x64(lhs_6_7, "lhs_6_7");
-
-  __m512i lhs_1_8 = _mm512_loadu_si512((__m512i *) &x->limbs[2]);
-
-//   print8x64(lhs_1_8, "lhs_1_8");
-
-  __m512i lhs_8 = _mm512_set1_epi32(x->limbs[9]);
-
-//   print8x64(lhs_8, "lhs_8");
-
-  __m512i lhs_2 = _mm512_set1_epi32(x->limbs[3]);
-
-//   print8x64(lhs_2, "lhs_2");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_6_7),
-        [b]     "v"(lhs_1_8));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_8),
-        [b]     "v"(lhs_2));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low4, lhs_6_7, lhs_1_8);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low4, lhs_8, lhs_2);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-//   print8x64(sublhs_512, "sublhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [5 6 7 8] and 3 * [4 5 6 7]
-  __m512i lhs_5_8 = _mm512_castsi256_si512(_mm256_loadu_si256((__m256i *) &x->limbs[6]));
-
-//   print8x64(lhs_5_8, "lhs_5_8");
-
-  __m512i lhs_0_7 = _mm512_loadu_si512((__m512i *) &x->limbs[1]);
-
-//   print8x64(lhs_0_7, "lhs_0_7");
-
-  __m512i lhs_9 = _mm512_set1_epi32(x->limbs[10]);
-
-//   print8x64(lhs_9, "lhs_9");
-
-  __m512i lhs_3 = _mm512_set1_epi32(x->limbs[4]);
-
-//   print8x64(lhs_3, "lhs_3");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_5_8),
-        [b]     "v"(lhs_0_7));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_9),
-        [b]     "v"(lhs_3));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low8, lhs_5_8, lhs_0_7);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low8, lhs_9, lhs_3);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-//   print8x64(sublhs_512, "sublhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [1 2 3 4] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_9),
-                                _mm512_castsi512_si256(lhs_1_8));
-//   print4x64(sublhs_256, "sublhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 10 * [4 5 6 7 8 9] and 4 * [5 6]
-  __m512i lhs_4_9 = _mm512_mask_loadu_epi32(_mm512_setzero(), low12, &x->limbs[5]);
-
-//   print8x64(lhs_4_9, "lhs_4_9");
-
-  __m512i lhs_10_6 = _mm512_loadu_si512((__m512i *) &x->limbs[0]);
-
-//   print8x64(lhs_10_6, "lhs_10_6");
-
-  __m512i lhs_10 = _mm512_set1_epi32(x->limbs[0]);
-
-//   print8x64(lhs_10, "lhs_10");
-
-  __m512i lhs_4 = _mm512_set1_epi32(x->limbs[5]);
-
-//   print8x64(lhs_4, "lhs_4");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_4_9),
-        [b]     "v"(lhs_10_6));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_10),
-        [b]     "v"(lhs_4));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low12, lhs_4_9, lhs_10_6);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low12, lhs_10, lhs_4);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-
-//   print8x64(sublhs_512, "sublhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 10 * [0 1 2 3] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_10),
-                                _mm512_castsi512_si256(lhs_0_7));
-//   print4x64(sublhs_256, "sublhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 0 * [3 4 5 6 7 8 9 10]
-  __m512i lhs_3_10 = _mm512_loadu_si512((__m512i *) &x->limbs[4]);
-
-//   print8x64(lhs_3_10, "lhs_3_10");
-
-  __m512i lhs_0 = _mm512_set1_epi32(x->limbs[1]);
-
-//   print8x64(lhs_0, "lhs_0");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_0, lhs_3_10);
-//   print8x64(sublhs_512, "sublhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 6 * [4 5] and 0 * [1 2]
-  __m256i lhs_6 = _mm256_set1_epi32(x->limbs[7]);
-
-//   print4x64(lhs_6, "lhs_6");
-
-  blend_var_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_10_6),
-                                         _mm512_castsi512_si256(lhs_4_9),
-                                         0x0f);
-
-  blend_const_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_0),
-                                           lhs_6,
-                                           0x0f);
-//   print4x64(blend_var_lhs_256, "blend_var_lhs_256");
-//   print4x64(blend_const_lhs_256, "blend_const_lhs_256");
-
-  sublhs_256 = _mm256_sub_epi32(blend_const_lhs_256, blend_var_lhs_256);
-//   print4x64(sublhs_256, "sublhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 7 * [3 4 5 6]
-  __m256i lhs_7 = _mm256_set1_epi32(x->limbs[8]);
-
-//   print4x64(lhs_7, "lhs_7");
-
-  sublhs_256 = _mm256_sub_epi32(lhs_7, _mm512_castsi512_si256(lhs_3_10));
-//   print4x64(sublhs_256, "sublhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 1 * [2 3 4 5 6 7 8 9]
-  __m512i lhs_2_9 = _mm512_loadu_si512((__m512i *) &x->limbs[3]);
-
-//   print8x64(lhs_2_9, "lhs_2_9");
-
-  __m512i lhs_1 = _mm512_set1_epi32(x->limbs[2]);
-
-//   print8x64(lhs_1, "lhs_1");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_1, lhs_2_9);
-//   print8x64(sublhs_512, "sublhs_512");
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  _mm512_storeu_si512((__m512i*) &temp.limbs[4], accum3);
-
-  // 8 * [2 3 4 5]
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_8),
-                                _mm512_castsi512_si256(lhs_2_9));
-//   print4x64(sublhs_256, "sublhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-  _mm256_store_si256((__m256i*) &temp.limbs[0], accum10);
   reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
+  __m512i _permute_final_result = _mm512_load_si512(permute_final_result);
+  __m512i accum0 = _mm512_load_si512((__m512i*) &temp.limbs[0]);
+  __m256i accum8 = _mm256_load_si256((__m256i*) &temp.limbs[8]);
+  __m512i final_result = _mm512_permutex2var_epi32(
+    accum0, _permute_final_result, _mm512_castsi256_si512(accum8));
+  _mm512_store_si512((__m512i*) &result->limbs[0], final_result);
 }
 
-// Square a narrow residue and produce a wide result. The result is reduced to
-// 32 bits but not narrowed for performance reasons.
+// Square a narrow residue and produce a narrow result. The result is reduced to
+// 32 bits.
 void square_narrow(
-  residue_wide_t *result, const residue_narrow_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
 
   residue_wide_t temp;
 
-  // Two accumulators
-  __m512i accum3 = _mm512_setzero();
-  __m256i accum10 = _mm256_setzero_si256();
+  __m512i lhs_source = _mm512_load_si512((__m512i *) &x->limbs[0]);
 
-  // Temporaries for sub sub mul
-  __m512i sublhs_512, mul_512;
-  __m256i sublhs_256, mul_256;
+  // General overview:
+  // Take advantage of the symmetry in the cyclical convolution structure in the
+  // original Granger Moss Paper
+  // Here's the table:
+  // Each pair of numbers n,m is shorthand for (x_n - x_m)(y_m - y_n)
+  // 10 1    9  2    8  3    7  4    6  5
+  // 5  7    4  8    3  9    2 10    1  0
+  // 0  2    10 3    9  4    8  5    7  6
+  // 6  8    5  9    4 10    3  0    2  1
+  // 1  3    0  4    10 5    9  6    8  7
+  // 7  9    6 10    5  0    4  1    3  2
+  // 2  4    1  5    0  6    10 7    9  8
+  // 8 10    7  0    6  1    5  2    4  3
+  // --- Invisible break here ---
+  // 3  5    2  6    1  7    0  8    10 9
+  // 9  0    8  1    7  2    6  3    5  4
+  // 4  6    3  7    2  8    1  9    0 10
 
-  __m512i blend_var_lhs;
-  __m512i blend_const_lhs;
+  // Note that the sequence is the same in the columns. Wherever 10 appears, 4
+  // is above it and 5 is below.
+  // The invisible break is at the first 8 elements: 512 bits for 64 bit results
+  // The column starting with 0 doesn't appear at the top, and the column
+  // starting with 4 doesn't appear after the break. It happens that if we
+  // alternate top/bottom/top/bottom, starting with the pairing using column 4,
+  // we go until we end up with the bottom pairing using column 0:
+  // 4  7    1 10    9  2    6  5    3  8
+  // 10 2    7  5    4  8    1  0    9  3
+  // 5  8    2  0    10 3    7  6    4  9
+  // 0  3    8  6    3  9    2  1    10 4      -- Middle 4 rows elided
+  //     7  1    10 9    2  6    5  3    8  0
+  //     2  7    5  4    8  1    0  9    3  6
+  //     8  2    0 10    3  7    6  4    9  1
 
-  __m256i blend_var_lhs_256;
-  __m256i blend_const_lhs_256;
+  // Low slots: 4, 10, 5, 0, 6, 1, 7, 2
+  // High slots: 1, 7, 2, 8, 3, 9, 4, 10
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_4_then_1[16] = {
+    4, 1, 10, 7, 5, 2, 0, 8, 6, 3, 1, 9, 7, 4, 2, 10,
+  };
 
-  __mmask16 low4, low8, low12;
+  // Low slots: 7, 2, 8, 3, 9, 4, 10, 5
+  // High slots: 10, 5, 0, 6, 1, 7, 2, 8
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_7_then_10[16] = {
+    7, 10, 2, 5, 8, 0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8,
+  };
 
-  low4 = _cvtu32_mask16(0xf);
-  low8 = _cvtu32_mask16(0xff);
-  low12 = _cvtu32_mask16(0xfff);
+  // Low slots: 9, 4, 10, 5, 0, 6, 1, 7
+  // High slots: 6, 1, 7, 2, 8, 3, 9, 4
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_9_then_6[16] = {
+    9, 6, 4, 1, 10, 7, 5, 2, 0, 8, 6, 3, 1, 9, 7, 4,
+  };
 
-  // 8 * [6 7] and 2 * [3 4 5 6 7 8]
-  __m512i lhs_6_7 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &x->limbs[7]));
-//   print8x64(lhs_6_7, "lhs_6_7");
+  // Low slots: 2, 8, 3, 9, 4, 10, 5, 0
+  // High slots: 5, 0, 6, 1, 7, 2, 8, 3
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_2_then_5[16] = {
+    2, 5, 8, 0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8, 0, 3
+  };
 
-  __m512i lhs_1_8 = loadu512_extend_32_64((__m256i *) &x->limbs[2]);
+  // Low slots: 3, 9, 4, 10, 5, 0, 6, 1
+  // High slots: 0, 6, 1, 7, 2, 8, 3, 9
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_3_then_0[16] = {
+    3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 0, 8, 6, 3, 1, 9
+  };
 
-//   print8x64(lhs_1_8, "lhs_1_8");
+  // Low slots: 8, 3, 9, 4, 10, 5, 0, 6
+  // High slots: (Don't care) 1-15 odds. Passthrough.
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_8[16] = {
+    8, 1, 3, 3, 9, 5, 4, 7, 10, 9, 5, 11, 0, 13, 6, 15,
+  };
 
-  __m512i lhs_8 = _mm512_set1_epi32(x->limbs[9]);
+  // Permutation to collapse the reduction result.
+  __attribute__((__aligned__(64)))
+  static const int32_t permute_final_result[16] = {
+    0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+  };
 
-//   print8x64(lhs_8, "lhs_8");
+  __m512i _permute_4_then_1 = _mm512_load_si512(permute_4_then_1);
+  __m512i _permute_7_then_10 = _mm512_load_si512(permute_7_then_10);
+  __m512i _permute_9_then_6 = _mm512_load_si512(permute_9_then_6);
+  __m512i _permute_2_then_5 = _mm512_load_si512(permute_2_then_5);
+  __m512i _permute_3_then_0 = _mm512_load_si512(permute_3_then_0);
+  __m512i _permute_8 = _mm512_load_si512(permute_8);
+  __m512i _permute_final_result = _mm512_load_si512(permute_final_result);
 
-  __m512i lhs_2 = _mm512_set1_epi32(x->limbs[3]);
+  __m512i lhs_4 = _mm512_permutexvar_epi32(_permute_4_then_1, lhs_source);
+  __m512i lhs_7 = _mm512_permutexvar_epi32(_permute_7_then_10, lhs_source);
 
-//   print8x64(lhs_2, "lhs_2");
+  __m512i lhs_9 = _mm512_permutexvar_epi32(_permute_9_then_6, lhs_source);
+  __m512i lhs_2 = _mm512_permutexvar_epi32(_permute_2_then_5, lhs_source);
 
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_6_7),
-        [b]     "v"(lhs_1_8));
+  __m512i sublhs_512 = _mm512_sub_epi32(lhs_4, lhs_7);
 
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low4),
-        [a]     "v"(lhs_8),
-        [b]     "v"(lhs_2));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low4, lhs_6_7, lhs_1_8);
+  __m512i accum0 = _mm512_setzero();
+  __m512i accum0_temp = _mm512_mul_epi32(sublhs_512, sublhs_512);
+  accum0 = _mm512_sub_epi64(accum0, accum0_temp);
+  __m512i lhs_1 = _mm512_shuffle_epi32(lhs_4, SWAP_32);
 
-  blend_const_lhs = _mm512_mask_blend_epi32(low4, lhs_8, lhs_2);
-#endif
+  __m256i sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_1),
+                                        _mm512_castsi512_si256(lhs_7));
+  __m256i accum8 = _mm256_setzero_si256();
+  __m256i accum8_temp = _mm256_mul_epi32(sublhs_256, sublhs_256);
 
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
+  accum8 = _mm256_sub_epi64(accum8, accum8_temp);
+  __m512i lhs_10 = _mm512_shuffle_epi32(lhs_7, SWAP_32);
 
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-//   print8x64(sublhs_512, "sublhs_512");
+  sublhs_512 = _mm512_sub_epi32(lhs_10, lhs_1);
 
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
+  accum0_temp = _mm512_mul_epi32(sublhs_512, sublhs_512);
 
-  // 9 * [5 6 7 8] and 3 * [4 5 6 7]
-  __m512i lhs_5_8 = _mm512_castsi256_si512(loadu_extend_32_64((__m128i *) &x->limbs[6]));
-
-//   print8x64(lhs_5_8, "lhs_5_8");
-
-  __m512i lhs_0_7 = loadu512_extend_32_64((__m256i *) &x->limbs[1]);
-
-//   print8x64(lhs_0_7, "lhs_0_7");
-
-  __m512i lhs_9 = _mm512_set1_epi32(x->limbs[10]);
-
-//   print8x64(lhs_9, "lhs_9");
-
-  __m512i lhs_3 = _mm512_set1_epi32(x->limbs[4]);
-
-//   print8x64(lhs_3, "lhs_3");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_5_8),
-        [b]     "v"(lhs_0_7));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low8),
-        [a]     "v"(lhs_9),
-        [b]     "v"(lhs_3));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low8, lhs_5_8, lhs_0_7);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low8, lhs_9, lhs_3);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-//   print8x64(sublhs_512, "sublhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 9 * [1 2 3 4] Done here because we have loaded everything already.
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_9),
-                                _mm512_castsi512_si256(lhs_1_8));
-//   print4x64(sublhs_256, "sublhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 10 * [4 5 6 7 8 9] and 4 * [5 6]
-  __m512i lhs_4_9 = loadu512_mask_extend_32_64((__m256i *) &x->limbs[5], _cvtu32_mask8(0x3f));
-
-//   print8x64(lhs_4_9, "lhs_4_9");
-
-  __m512i lhs_10_6 = loadu512_extend_32_64((__m256i *) &x->limbs[0]);
-
-//   print8x64(lhs_10_6, "lhs_10_6");
-
-  __m512i lhs_10 = _mm512_set1_epi32(x->limbs[0]);
-
-//   print8x64(lhs_10, "lhs_10");
-
-  __m512i lhs_4 = _mm512_set1_epi32(x->limbs[5]);
-
-//   print8x64(lhs_4, "lhs_4");
-
-#if FORCE_BLEND
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_var_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_4_9),
-        [b]     "v"(lhs_10_6));
-
-  __asm__(
-      "vpblendmd %[a], %[b], %[blend] %{%[mask]%}"
-      : [blend] "=v"(blend_const_lhs)
-      : [mask]  "Yk"((__mmask16) low12),
-        [a]     "v"(lhs_10),
-        [b]     "v"(lhs_4));
-#else
-  blend_var_lhs = _mm512_mask_blend_epi32(low12, lhs_4_9, lhs_10_6);
-
-  blend_const_lhs = _mm512_mask_blend_epi32(low12, lhs_10, lhs_4);
-#endif
-
-//   print8x64(blend_var_lhs, "blend_var_lhs");
-//   print8x64(blend_const_lhs, "blend_const_lhs");
-
-  sublhs_512 = _mm512_sub_epi32(blend_const_lhs, blend_var_lhs);
-
-//   print8x64(sublhs_512, "sublhs_512");
-
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  // 10 * [0 1 2 3] Done here because we have loaded everything already.
   sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_10),
-                                _mm512_castsi512_si256(lhs_0_7));
-//   print4x64(sublhs_256, "sublhs_256");
+                                _mm512_castsi512_si256(lhs_9));
+  accum8_temp = _mm256_mul_epi32(sublhs_256, sublhs_256);
 
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
+  accum0 = _mm512_sub_epi64(accum0, accum0_temp);
+  accum8 = _mm256_sub_epi64(accum8, accum8_temp);
 
-  // 0 * [3 4 5 6 7 8 9 10]
-  __m512i lhs_3_10 = loadu512_extend_32_64((__m256i *) &x->limbs[4]);
+  sublhs_512 = _mm512_sub_epi32(lhs_9, lhs_2);
+  accum0_temp = _mm512_mul_epi32(sublhs_512, sublhs_512);
 
-//   print8x64(lhs_3_10, "lhs_3_10");
+  __m512i lhs_6 = _mm512_shuffle_epi32(lhs_9, SWAP_32);
+  __m512i lhs_3 = _mm512_permutexvar_epi32(_permute_3_then_0, lhs_source);
+  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_2),
+                                _mm512_castsi512_si256(lhs_6));
 
-  __m512i lhs_0 = _mm512_set1_epi32(x->limbs[1]);
+  accum8_temp = _mm256_mul_epi32(sublhs_256, sublhs_256);
+  accum0 = _mm512_sub_epi64(accum0, accum0_temp);
+  accum8 = _mm256_sub_epi64(accum8, accum8_temp);
 
-//   print8x64(lhs_0, "lhs_0");
+  __m512i lhs_5 = _mm512_shuffle_epi32(lhs_2, SWAP_32);
 
-  sublhs_512 = _mm512_sub_epi32(lhs_0, lhs_3_10);
-//   print8x64(sublhs_512, "sublhs_512");
+  __m512i lhs_8 = _mm512_permutexvar_epi32(_permute_8, lhs_source);
+  sublhs_512 = _mm512_sub_epi32(lhs_6, lhs_5);
+  accum0_temp = _mm512_mul_epi32(sublhs_512, sublhs_512);
 
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
+  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_3),
+                                _mm512_castsi512_si256(lhs_5));
+  accum8_temp = _mm256_mul_epi32(sublhs_256, sublhs_256);
+  accum0 = _mm512_sub_epi64(accum0, accum0_temp);
+  accum8 = _mm256_sub_epi64(accum8, accum8_temp);
 
-  // 6 * [4 5] and 0 * [1 2]
-  __m256i lhs_6 = _mm256_set1_epi32(x->limbs[7]);
+  sublhs_512 = _mm512_sub_epi32(lhs_8, lhs_3);
+  accum0_temp = _mm512_mul_epi32(sublhs_512, sublhs_512);
 
-//   print4x64(lhs_6, "lhs_6");
+  __m512i lhs_0 = _mm512_shuffle_epi32(lhs_3, SWAP_32);
 
-  blend_var_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_10_6),
-                                         _mm512_castsi512_si256(lhs_4_9),
-                                         0x0f);
+  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_0),
+                                _mm512_castsi512_si256(lhs_8));
+  accum8_temp = _mm256_mul_epi32(sublhs_256, sublhs_256);
+  accum0 = _mm512_sub_epi64(accum0, accum0_temp);
+  accum8 = _mm256_sub_epi64(accum8, accum8_temp);
 
-  blend_const_lhs_256 = _mm256_blend_epi32(_mm512_castsi512_si256(lhs_0),
-                                           lhs_6,
-                                           0x0f);
-//   print4x64(blend_var_lhs_256, "blend_var_lhs_256");
-//   print4x64(blend_const_lhs_256, "blend_const_lhs_256");
-
-  sublhs_256 = _mm256_sub_epi32(blend_const_lhs_256, blend_var_lhs_256);
-//   print4x64(sublhs_256, "sublhs_256");
-
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 7 * [3 4 5 6]
-  __m256i lhs_7 = _mm256_set1_epi32(x->limbs[8]);
-
-//   print4x64(lhs_7, "lhs_7");
-
-  sublhs_256 = _mm256_sub_epi32(lhs_7, _mm512_castsi512_si256(lhs_3_10));
-//   print4x64(sublhs_256, "sublhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-
-  // 1 * [2 3 4 5 6 7 8 9]
-  __m512i lhs_2_9 = loadu512_extend_32_64((__m256i *) &x->limbs[3]);
-
-//   print8x64(lhs_2_9, "lhs_2_9");
-
-  __m512i lhs_1 = _mm512_set1_epi32(x->limbs[2]);
-
-//   print8x64(lhs_1, "lhs_1");
-
-  sublhs_512 = _mm512_sub_epi32(lhs_1, lhs_2_9);
-//   print8x64(sublhs_512, "sublhs_512");
-  mul_512 = _mm512_mul_epi32(sublhs_512, sublhs_512);
-//   print8x64(mul_512, "mul_512");
-  accum3 = _mm512_sub_epi64(accum3, mul_512);
-//   print8x64(accum3, "accum3");
-
-  _mm512_storeu_si512((__m512i*) &temp.limbs[4], accum3);
-
-  // 8 * [2 3 4 5]
-  sublhs_256 = _mm256_sub_epi32(_mm512_castsi512_si256(lhs_8),
-                                _mm512_castsi512_si256(lhs_2_9));
-//   print4x64(sublhs_256, "sublhs_256");
-  mul_256 = _mm256_mul_epi32(sublhs_256, sublhs_256);
-//   print4x64(mul_256, "mul_256");
-  accum10 = _mm256_sub_epi64(accum10, mul_256);
-//   print4x64(accum10, "accum10");
-  _mm256_store_si256((__m256i*) &temp.limbs[0], accum10);
-
+  _mm512_store_si512((__m512i*) &temp.limbs[0], accum0);
+  _mm256_store_si256((__m256i*) &temp.limbs[8], accum8);
   reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
+  reduce_step_wide(&temp, &temp);
+  accum0 = _mm512_load_si512((__m512i*) &temp.limbs[0]);
+  accum8 = _mm256_load_si256((__m256i*) &temp.limbs[8]);
+  __m512i final_result = _mm512_permutex2var_epi32(
+    accum0, _permute_final_result, _mm512_castsi256_si512(accum8));
+  _mm512_store_si512((__m512i*) &result->limbs[0], final_result);
 }
 
 // Approximately divide each coefficient by t. Carry the results.
 void reduce_step_narrow(
   residue_narrow_t *result, const residue_narrow_t *x) {
 
-  __m256i accum0, error0, shift_error0, carry_rot0;
-  __m128i accum8, error8, shift_error8, carry_rot8;
+  __attribute__((__aligned__(64)))
+  static const int32_t carry_permute[16] = {
+    0xa, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6,
+    0x7, 0x8, 0x9, 0xb, 0xc, 0xd, 0xe, 0xf,
+  };
 
-  __m256i mask = _mm256_set1_epi32(0x3ffffff);
-  uint32_t slide_permute[8] = { 7, 0, 1, 2, 3, 4, 5, 6 };
-  __m256i slide_permute_v = _mm256_loadu_si256((__m256i*) slide_permute);
+  __m512i accum;
 
-  accum8 = _mm_load_si128((__m128i*) &x->limbs[8]);
-  accum0 = _mm256_loadu_si256((__m256i*) &x->limbs[0]);
+  __m512i carry_permute_512 = _mm512_load_si512((__m512i *) carry_permute);
+  __m512i mask = _mm512_set1_epi32(0x3ffffff);
 
-  error8 = _mm_srai_epi32(accum8, 26);
-  carry_rot8 = _mm_shuffle_epi32(error8, 0x92);
-  shift_error8 = _mm_slli_epi32(error8, 4);
+  accum = _mm512_load_si512((__m512i*) &x->limbs[0]);
 
-  error0 = _mm256_srai_epi32(accum0, 26);
-  carry_rot0 = _mm256_permutevar8x32_epi32(error0, slide_permute_v);
-  shift_error0 = _mm256_slli_epi32(error0, 4);
-
-  accum8 = _mm_and_si128(accum8, _mm256_castsi256_si128(mask));
-  accum0 = _mm256_and_si256(accum0, mask);
-
-  accum8 = _mm_sub_epi32(accum8, error8);
-  accum0 = _mm256_sub_epi32(accum0, error0);
-
-  accum8 = _mm_add_epi32(accum8, shift_error8);
-  accum0 = _mm256_add_epi32(accum0, shift_error0);
-
-  __m128i merged_carry8 = _mm_blend_epi32(
-      carry_rot8, _mm256_castsi256_si128(carry_rot0), 0x01);
-  accum8 = _mm_add_epi32(accum8, merged_carry8);
-  __m256i merged_carry0 = _mm256_blend_epi32(
-    carry_rot0, _mm256_castsi128_si256(carry_rot8), 0x01);
-  accum0 = _mm256_add_epi32(accum0, merged_carry0);
-  _mm_store_si128((__m128i*) &result->limbs[8], accum8);
-  _mm256_storeu_si256((__m256i*) &result->limbs[0], accum0);
+  __m512i error = _mm512_srai_epi32(accum, 26);
+  __m512i carry = _mm512_permutexvar_epi32(carry_permute_512, error);
+  accum = _mm512_and_si512(accum, mask);
+  accum = _mm512_sub_epi32(accum, error);
+  __m512i shift_error = _mm512_slli_epi32(error, 4);
+  accum = _mm512_add_epi32(accum, shift_error);
+  accum = _mm512_add_epi32(accum, carry);
+  _mm512_store_si512((__m512i*) &result->limbs[0], accum);
 }
 
 // Approximately divide each coefficient by t. Carry the results.
@@ -2076,61 +729,65 @@ void reduce_step_wide(
   residue_wide_t *result, const residue_wide_t *x) {
 
   __attribute__((__aligned__(64)))
-  static const int64_t carry_permute_3[8] = {
-    0xb, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6,
+  static const int64_t carry_permute_0[8] = {
+    0xa, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6,
   };
 
-  static const int64_t carry_permute_10[8] = {
-    0x6, 0x8, 0x9, 0xa, 0xc, 0xd, 0xe, 0xf,
+  __attribute__((__aligned__(64)))
+  static const int64_t carry_permute_8[8] = {
+    0x7, 0x8, 0x9, 0xb, 0xc, 0xd, 0xe, 0xf,
   };
 
-  __m512i accum3;
-  __m256i accum10;
+  __m512i accum0;
+  __m256i accum8;
 
-  __m512i carry_permute_3_512 = _mm512_load_si512(carry_permute_3);
-  __m512i carry_permute_10_512 = _mm512_load_si512(carry_permute_10);
+  __m512i carry_permute_0_512 = _mm512_load_si512(carry_permute_0);
+  __m512i carry_permute_8_512 = _mm512_load_si512(carry_permute_8);
   __m512i mask = _mm512_set1_epi64(0x3ffffff);
 
-  accum3 = _mm512_loadu_si512((__m512i*) &x->limbs[4]);
-//   print8x64(accum3, "accum3");
-  __m512i shift3 = _mm512_srai_epi64(accum3, 26);
-//   print8x64(shift3, "shift3");
-  accum3 = _mm512_and_si512(accum3, mask);
-//   print8x64(accum3, "accum3");
-  accum3 = _mm512_sub_epi64(accum3, shift3);
-//   print8x64(accum3, "accum3");
-  __m512i shift_error3 = _mm512_slli_epi64(shift3, 4);
-//   print8x64(shift_error3, "shift_error3");
-  accum3 = _mm512_add_epi64(accum3, shift_error3);
-//   print8x64(accum3, "accum3");
+  accum0 = _mm512_load_si512((__m512i*) &x->limbs[0]);
+//   print8x64(accum0, "accum0");
+  __m512i error0 = _mm512_srai_epi64(accum0, 26);
+//   print8x64(error0, "error0");
+  accum0 = _mm512_and_si512(accum0, mask);
+//   print8x64(accum0, "accum0");
+  accum0 = _mm512_sub_epi64(accum0, error0);
+//   print8x64(accum0, "accum0");
+  __m512i shift_error0 = _mm512_slli_epi64(error0, 4);
+//   print8x64(shift_error0, "shift_error0");
+  accum0 = _mm512_add_epi64(accum0, shift_error0);
+//   print8x64(accum0, "accum0");
 
-  accum10 = _mm256_load_si256((__m256i*) &x->limbs[0]);
-//   print4x64(accum10, "accum10");
-  __m256i shift10 = _mm256_srai_epi64(accum10, 26);
-//   print4x64(shift10, "shift10");
-  accum10 = _mm256_and_si256(accum10, _mm512_castsi512_si256(mask));
-//   print4x64(accum10, "accum10");
-  accum10 = _mm256_sub_epi64(accum10, shift10);
-//   print4x64(accum10, "accum10");
-  __m256i shift_error10 = _mm256_slli_epi64(shift10, 4);
-//   print4x64(shift_error10, "shift_error10");
-  accum10 = _mm256_add_epi64(accum10, shift_error10);
-//   print4x64(accum10, "accum10");
+  accum8 = _mm256_load_si256((__m256i*) &x->limbs[8]);
+//   print4x64(accum8, "accum8");
+  __m256i error8 = _mm256_srai_epi64(accum8, 26);
+//   print4x64(error8, "error8");
 
-  __m512i carry3 = _mm512_permutex2var_epi64(
-      shift3, carry_permute_3_512, _mm512_castsi256_si512(shift10));
-//   print8x64(carry3, "carry3");
-  __m256i carry10 = _mm512_castsi512_si256(
+  // Compute the carries right now that we have the necessary inputs.
+  __m512i carry0 = _mm512_permutex2var_epi64(
+      error0, carry_permute_0_512, _mm512_castsi256_si512(error8));
+//   print8x64(carry0, "carry0");
+  __m256i carry8 = _mm512_castsi512_si256(
       _mm512_permutex2var_epi64(
-          shift3, carry_permute_10_512, _mm512_castsi256_si512(shift10)));
-//   print4x64(carry10, "carry10");
+          error0, carry_permute_8_512, _mm512_castsi256_si512(error8)));
+//   print4x64(carry8, "carry8");
 
-  accum3 = _mm512_add_epi64(accum3, carry3);
-//   print8x64(accum3, "accum3");
-  _mm512_storeu_si512((__m512i*) &result->limbs[4], accum3);
-  accum10 = _mm256_add_epi64(accum10, carry10);
-//   print4x64(accum10, "accum10");
-  _mm256_store_si256((__m256i*) &result->limbs[0], accum10);
+  accum8 = _mm256_and_si256(accum8, _mm512_castsi512_si256(mask));
+//   print4x64(accum8, "accum8");
+  accum8 = _mm256_sub_epi64(accum8, error8);
+//   print4x64(accum8, "accum8");
+  __m256i shift_error8 = _mm256_slli_epi64(error8, 4);
+//   print4x64(shift_error8, "shift_error8");
+  accum8 = _mm256_add_epi64(accum8, shift_error8);
+//   print4x64(accum8, "accum8");
+
+
+  accum0 = _mm512_add_epi64(accum0, carry0);
+//   print8x64(accum0, "accum0");
+  _mm512_store_si512((__m512i*) &result->limbs[0], accum0);
+  accum8 = _mm256_add_epi64(accum8, carry8);
+//   print4x64(accum8, "accum8");
+  _mm256_store_si256((__m256i*) &result->limbs[8], accum8);
 }
 
 // Takes advantage of the fact that if a residue z *is zero* then after setting
@@ -2138,16 +795,16 @@ void reduce_step_wide(
 // T/2. They should therefore resolve all carries in a single step, and all be
 // equal to the same value. Some other value may not reduce completely, but this
 // is fine, we will know it is not zero.
-int equal_wide(const residue_wide_t *x, const residue_wide_t *y) {
-  residue_wide_t temp;
+int equal_narrow(const residue_narrow_t *x, const residue_narrow_t *y) {
+  residue_narrow_t temp;
 
-  sub_wide(&temp, x, y);
-  int64_t delta = -temp.limbs[0] + (T / 2);
+  sub_narrow(&temp, x, y);
+  int32_t delta = -temp.limbs[0] + (T / 2);
   for (int i = 0; i < NLIMBS; ++i) {
     temp.limbs[i] += delta;
   }
 
-  reduce_step_wide(&temp, &temp);
+  reduce_step_narrow(&temp, &temp);
 
   delta = temp.limbs[0];
   int result = 0;
@@ -2169,188 +826,188 @@ int equal_narrow_reduced(
   return !result;
 }
 
-static inline void nsquare_wide(
-  residue_wide_t *result, const residue_wide_t *x, int n) {
+static inline void nsquare_narrow(
+  residue_narrow_t *result, const residue_narrow_t *x, int n) {
 
-  square_wide(result, x);
+  square_narrow(result, x);
   for (int i = 1; i < n; ++i) {
-    square_wide(result, result);
+    square_narrow(result, result);
   }
 }
 
 static void raise_to_t(
-  residue_wide_t *result, const residue_wide_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
   // zi = z^(2^i - 1), z1 = x
-  residue_wide_t z2;
-  residue_wide_t z3;
-  residue_wide_t z5;
-  residue_wide_t z10;
-  residue_wide_t z11;
-  residue_wide_t z22;
-  residue_wide_t result_t;
+  residue_narrow_t z2;
+  residue_narrow_t z3;
+  residue_narrow_t z5;
+  residue_narrow_t z10;
+  residue_narrow_t z11;
+  residue_narrow_t z22;
+  residue_narrow_t result_t;
 
-  square_wide(&z2, x);
-  mul_wide(&z2, &z2, x);
-  square_wide(&z3, &z2);
-  mul_wide(&z3, &z3, x);
-  nsquare_wide(&z5, &z3, 2);
-  mul_wide(&z5, &z5, &z2);
-  nsquare_wide(&z10, &z5, 5);
-  mul_wide(&z10, &z10, &z5);
-  square_wide(&z11, &z10);
-  mul_wide(&z11, &z11, x);
-  nsquare_wide(&z22, &z11, 11);
-  mul_wide(&z22, &z22, &z11);
-  nsquare_wide(&result_t, &z22, 4);
-  mul_wide(result, &result_t, x);
+  square_narrow(&z2, x);
+  mul_narrow(&z2, &z2, x);
+  square_narrow(&z3, &z2);
+  mul_narrow(&z3, &z3, x);
+  nsquare_narrow(&z5, &z3, 2);
+  mul_narrow(&z5, &z5, &z2);
+  nsquare_narrow(&z10, &z5, 5);
+  mul_narrow(&z10, &z10, &z5);
+  square_narrow(&z11, &z10);
+  mul_narrow(&z11, &z11, x);
+  nsquare_narrow(&z22, &z11, 11);
+  mul_narrow(&z22, &z22, &z11);
+  nsquare_narrow(&result_t, &z22, 4);
+  mul_narrow(result, &result_t, x);
 }
 
 static void raise_to_t2(
-  residue_wide_t *result, const residue_wide_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
   // t^2 = 0xfffff880000e1
   // zi = z^(2^i - 1), z1 = x
-  residue_wide_t z2;
-  residue_wide_t z3;
-  residue_wide_t z5;
-  residue_wide_t z10;
-  residue_wide_t z20;
-  residue_wide_t result_t;
+  residue_narrow_t z2;
+  residue_narrow_t z3;
+  residue_narrow_t z5;
+  residue_narrow_t z10;
+  residue_narrow_t z20;
+  residue_narrow_t result_t;
 
-  square_wide(&z2, x);
-  mul_wide(&z2, &z2, x);
-  square_wide(&z3, &z2);
-  mul_wide(&z3, &z3, x);
-  nsquare_wide(&z5, &z3, 2);
-  mul_wide(&z5, &z5, &z2);
-  nsquare_wide(&z10, &z5, 5);
-  mul_wide(&z10, &z10, &z5);
-  nsquare_wide(&z20, &z10, 10);
-  mul_wide(&z20, &z20, &z10);
-  square_wide(&result_t, &z20);
-  mul_wide(&result_t, &result_t, x);
-  nsquare_wide(&result_t, &result_t, 4);
-  mul_wide(&result_t, &result_t, x);
+  square_narrow(&z2, x);
+  mul_narrow(&z2, &z2, x);
+  square_narrow(&z3, &z2);
+  mul_narrow(&z3, &z3, x);
+  nsquare_narrow(&z5, &z3, 2);
+  mul_narrow(&z5, &z5, &z2);
+  nsquare_narrow(&z10, &z5, 5);
+  mul_narrow(&z10, &z10, &z5);
+  nsquare_narrow(&z20, &z10, 10);
+  mul_narrow(&z20, &z20, &z10);
+  square_narrow(&result_t, &z20);
+  mul_narrow(&result_t, &result_t, x);
+  nsquare_narrow(&result_t, &result_t, 4);
+  mul_narrow(&result_t, &result_t, x);
   // 22 = 3 for zeros in 8, 16 for zeros in 0000, 3 to make room for e.
-  nsquare_wide(&result_t, &result_t, 22);
-  mul_wide(&result_t, &result_t, &z3);
-  nsquare_wide(&result_t, &result_t, 5);
-  mul_wide(result, &result_t, x);
+  nsquare_narrow(&result_t, &result_t, 22);
+  mul_narrow(&result_t, &result_t, &z3);
+  nsquare_narrow(&result_t, &result_t, 5);
+  mul_narrow(result, &result_t, x);
 }
 
 static void raise_to_phi_t(
-  residue_wide_t *result, const residue_wide_t *x, int n) {
-  residue_wide_t temp;
+  residue_narrow_t *result, const residue_narrow_t *x, int n) {
+  residue_narrow_t temp;
 
   raise_to_t(&temp, x);
 
   for (int i = 1; i < n; ++i) {
-    mul_wide(&temp, &temp, x);
+    mul_narrow(&temp, &temp, x);
     raise_to_t(&temp, &temp);
   }
 
-  mul_wide(result, &temp, x);
+  mul_narrow(result, &temp, x);
 }
 
 static void raise_to_t_minus_1_over_4(
-  residue_wide_t *result, const residue_wide_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
   // zi = z^(2^i - 1), z1 = x
-  residue_wide_t z2;
-  residue_wide_t z3;
-  residue_wide_t z5;
-  residue_wide_t z10;
-  residue_wide_t z11;
-  residue_wide_t z22;
+  residue_narrow_t z2;
+  residue_narrow_t z3;
+  residue_narrow_t z5;
+  residue_narrow_t z10;
+  residue_narrow_t z11;
+  residue_narrow_t z22;
 
-  square_wide(&z2, x);
-  mul_wide(&z2, &z2, x);
-  square_wide(&z3, &z2);
-  mul_wide(&z3, &z3, x);
-  nsquare_wide(&z5, &z3, 2);
-  mul_wide(&z5, &z5, &z2);
-  nsquare_wide(&z10, &z5, 5);
-  mul_wide(&z10, &z10, &z5);
-  square_wide(&z11, &z10);
-  mul_wide(&z11, &z11, x);
-  nsquare_wide(&z22, &z11, 11);
-  mul_wide(&z22, &z22, &z11);
-  nsquare_wide(result, &z22, 2);
+  square_narrow(&z2, x);
+  mul_narrow(&z2, &z2, x);
+  square_narrow(&z3, &z2);
+  mul_narrow(&z3, &z3, x);
+  nsquare_narrow(&z5, &z3, 2);
+  mul_narrow(&z5, &z5, &z2);
+  nsquare_narrow(&z10, &z5, 5);
+  mul_narrow(&z10, &z10, &z5);
+  square_narrow(&z11, &z10);
+  mul_narrow(&z11, &z11, x);
+  nsquare_narrow(&z22, &z11, 11);
+  mul_narrow(&z22, &z22, &z11);
+  nsquare_narrow(result, &z22, 2);
 }
 
 static void raise_to_p_minus_3_over_4(
-  residue_wide_t *result, const residue_wide_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
 
-  residue_wide_t z4; //z to (t-1)/4
-  residue_wide_t z2; //z to (t-1)/2
-  residue_wide_t z3_4; //z to (3t+1)/4
-  residue_wide_t y_small;
-  residue_wide_t y, y_t4_y;
-  residue_wide_t raised;
+  residue_narrow_t z4; //z to (t-1)/4
+  residue_narrow_t z2; //z to (t-1)/2
+  residue_narrow_t z3_4; //z to (3t+1)/4
+  residue_narrow_t y_small;
+  residue_narrow_t y, y_t4_y;
+  residue_narrow_t raised;
 
   raise_to_t_minus_1_over_4(&z4, x);
-  square_wide(&z2, &z4);
-  mul_wide(&z3_4, &z2, &z4);
-  mul_wide(&z3_4, &z3_4, x);
+  square_narrow(&z2, &z4);
+  mul_narrow(&z3_4, &z2, &z4);
+  mul_narrow(&z3_4, &z3_4, x);
   raise_to_t(&raised, &z4);
-  mul_wide(&y_small, &z2, &raised);
+  mul_narrow(&y_small, &z2, &raised);
   raise_to_t(&raised, &y_small);
-  mul_wide(&y, &z3_4, &raised);
+  mul_narrow(&y, &z3_4, &raised);
   raise_to_t(&raised, &y);
   raise_to_t(&raised, &raised);
   raise_to_t(&raised, &raised);
   raise_to_t(&raised, &raised);
-  mul_wide(&y_t4_y, &raised, &y);
+  mul_narrow(&y_t4_y, &raised, &y);
   raise_to_t(&raised, &y_t4_y);
   raise_to_t(&raised, &raised);
   raise_to_t(&raised, &raised);
-  mul_wide(result, &raised, &y_small);
+  mul_narrow(result, &raised, &y_small);
 }
 
-int sqrt_inv_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y) {
-  residue_wide_t xy;
-  residue_wide_t y2;
-  residue_wide_t xy3;
-  residue_wide_t xy3_p_3_over_4;
-  residue_wide_t cand2;
-  residue_wide_t should_be_x;
+int sqrt_inv_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x,
+  const residue_narrow_t * __restrict y) {
+  residue_narrow_t xy;
+  residue_narrow_t y2;
+  residue_narrow_t xy3;
+  residue_narrow_t xy3_p_3_over_4;
+  residue_narrow_t cand2;
+  residue_narrow_t should_be_x;
 
-  square_wide(&y2, y);
-  mul_wide(&xy, x, y);
-  mul_wide(&xy3, &xy, &y2);
+  square_narrow(&y2, y);
+  mul_narrow(&xy, x, y);
+  mul_narrow(&xy3, &xy, &y2);
   raise_to_p_minus_3_over_4(&xy3_p_3_over_4, &xy3);
-  mul_wide(result, &xy, &xy3_p_3_over_4);
-  square_wide(&cand2, result);
-  mul_wide(&should_be_x, y, &cand2);
+  mul_narrow(result, &xy, &xy3_p_3_over_4);
+  square_narrow(&cand2, result);
+  mul_narrow(&should_be_x, y, &cand2);
 
-  return equal_wide(&should_be_x, x);
+  return equal_narrow(&should_be_x, x);
 }
 
-void invert_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x) {
+void invert_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x) {
 
-  residue_wide_t x_t_minus_1_over_4;
-  residue_wide_t x_t_minus_1;
+  residue_narrow_t x_t_minus_1_over_4;
+  residue_narrow_t x_t_minus_1;
   // x^2 (trades a multiply for a square)
-  residue_wide_t x2;
+  residue_narrow_t x2;
   // rho_k = x^((t^k - 1)/(t - 1))
   // rho_1 = x
-  residue_wide_t rho_2, rho_4, rho_8, rho_9;
-  residue_wide_t result_t;
+  residue_narrow_t rho_2, rho_4, rho_8, rho_9;
+  residue_narrow_t result_t;
 
   raise_to_t_minus_1_over_4(&x_t_minus_1_over_4, x);
-  nsquare_wide(&x_t_minus_1, &x_t_minus_1_over_4, 2);
-  square_wide(&x2, x);
-  mul_wide(&rho_2, &x_t_minus_1, &x2);
+  nsquare_narrow(&x_t_minus_1, &x_t_minus_1_over_4, 2);
+  square_narrow(&x2, x);
+  mul_narrow(&rho_2, &x_t_minus_1, &x2);
   raise_to_t2(&rho_4, &rho_2);
-  mul_wide(&rho_4, &rho_4, &rho_2);
+  mul_narrow(&rho_4, &rho_4, &rho_2);
   raise_to_t2(&rho_8, &rho_4);
   raise_to_t2(&rho_8, &rho_8);
-  mul_wide(&rho_8, &rho_8, &rho_4);
+  mul_narrow(&rho_8, &rho_8, &rho_4);
   raise_to_t(&rho_9, &rho_8);
-  mul_wide(&rho_9, &rho_9, x);
+  mul_narrow(&rho_9, &rho_9, x);
   raise_to_t2(&result_t, &rho_9);
-  mul_wide(result, &result_t, &x_t_minus_1);
+  mul_narrow(result, &result_t, &x_t_minus_1);
 }
 
 void encode(uint8_t *out, const residue_narrow_reduced_t * __restrict x) {

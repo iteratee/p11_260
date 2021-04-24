@@ -27,21 +27,18 @@ void sign(signature_t *result, scalar_t *priv_key,
 
   reduce_hash_mod_l(&session_key, &scalar_large);
 
-  projective_pt_wide_t result_pt;
+  projective_pt_narrow_t result_pt;
   scalar_comb_multiply(&result_pt, &base_comb, &session_key);
-  residue_wide_t z_inv;
+  residue_narrow_t z_inv;
 
-  invert_wide(&z_inv, &result_pt.z);
-  mul_wide(&result_pt.x, &result_pt.x, &z_inv);
-  mul_wide(&result_pt.y, &result_pt.y, &z_inv);
+  invert_narrow(&z_inv, &result_pt.z);
+  mul_narrow(&result_pt.x, &result_pt.x, &z_inv);
+  mul_narrow(&result_pt.y, &result_pt.y, &z_inv);
 
-  residue_narrow_t temp_narrow;
-  narrow(&temp_narrow, &result_pt.y);
-  narrow_complete(&result->y, &temp_narrow);
+  narrow_complete(&result->y, &result_pt.y);
 
   residue_narrow_reduced_t temp_narrow_reduced;
-  narrow(&temp_narrow, &result_pt.x);
-  narrow_partial_complete(&temp_narrow_reduced, &temp_narrow);
+  narrow_partial_complete(&temp_narrow_reduced, &result_pt.x);
   result->y.limbs[NLIMBS_REDUCED - 1] |=
       is_odd(&temp_narrow_reduced) << (TBITS);
 
@@ -70,9 +67,9 @@ int verify(
   const affine_pt_narrow_t *pub_key_pt, const uint8_t *msg,
   size_t msg_len) {
 
-  projective_pt_wide_t sB;
-  projective_pt_wide_t hA;
-  projective_pt_wide_t result_pt;
+  projective_pt_narrow_t sB;
+  projective_pt_narrow_t hA;
+  projective_pt_narrow_t result_pt;
   residue_narrow_reduced_t result_y;
 
   scalar_hash_t scalar_large;
@@ -94,19 +91,16 @@ int verify(
   // Everything below except the comparison should eventually be in helper
   // functions: Point affinization, and point compression bit-for-bit.
   // Same applies for the signing.
-  residue_wide_t z_inv;
+  residue_narrow_t z_inv;
 
-  invert_wide(&z_inv, &result_pt.z);
-  mul_wide(&result_pt.x, &result_pt.x, &z_inv);
-  mul_wide(&result_pt.y, &result_pt.y, &z_inv);
+  invert_narrow(&z_inv, &result_pt.z);
+  mul_narrow(&result_pt.x, &result_pt.x, &z_inv);
+  mul_narrow(&result_pt.y, &result_pt.y, &z_inv);
 
-  residue_narrow_t temp_narrow;
-  narrow(&temp_narrow, &result_pt.y);
-  narrow_complete(&result_y, &temp_narrow);
+  narrow_complete(&result_y, &result_pt.y);
 
   residue_narrow_reduced_t temp_narrow_reduced;
-  narrow(&temp_narrow, &result_pt.x);
-  narrow_partial_complete(&temp_narrow_reduced, &temp_narrow);
+  narrow_partial_complete(&temp_narrow_reduced, &result_pt.x);
   result_y.limbs[NLIMBS_REDUCED - 1] |=
       is_odd(&temp_narrow_reduced) << TBITS;
 

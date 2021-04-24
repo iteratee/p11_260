@@ -1,13 +1,9 @@
 #include <stdint.h>
 #include "f11_260.h"
 
-residue_wide_t zero_wide = {0};
-residue_wide_t one_wide = {
-  .limbs = {0, 1},
-};
 residue_narrow_t zero_narrow = {0};
 residue_narrow_t one_narrow = {
-  .limbs = {0, 1},
+  .limbs = {1,0,0,0,0,0,0,0,0,0,0,1},
 };
 
 // Shrink to 32 bits. Assumes reduction has already occurred, and wide storage
@@ -23,13 +19,13 @@ void narrow_reduce(
   residue_narrow_reduced_t *result, const residue_narrow_t * __restrict w) {
   residue_narrow_t temp;
   for (int i = 0; i < NLIMBS; ++i) {
-    temp.limbs[i] = w->limbs[i] - w->limbs[0];
+    temp.limbs[i] = w->limbs[i] - w->limbs[10];
   }
 
   reduce_step_narrow(&temp, &temp);
 
   for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    result->limbs[i] = temp.limbs[i+1] - temp.limbs[0];
+    result->limbs[i] = temp.limbs[i] - temp.limbs[10];
   }
 }
 
@@ -40,7 +36,7 @@ void narrow_complete(
 
   residue_narrow_t temp;
   for (int i = 0; i < NLIMBS; ++i) {
-    temp.limbs[i] = w->limbs[i] - w->limbs[0];
+    temp.limbs[i] = w->limbs[i] - w->limbs[10];
   }
 
   // This may be combined with the final reduction from a multiply.
@@ -49,34 +45,34 @@ void narrow_complete(
   int gt_mask = 0;
   int lt_mask = 0;
   int32_t limit[NLIMBS];
-  for (int i = 1; i < NLIMBS; ++i) {
-    temp.limbs[i] = temp.limbs[i] - temp.limbs[0];
+  for (int i = 0; i < NLIMBS; ++i) {
+    temp.limbs[i] = temp.limbs[i] - temp.limbs[10];
     temp.limbs[i] += 1 & gt_mask;
-    temp.limbs[i] -= 1 & gt_mask;
+    temp.limbs[i] -= 1 & lt_mask;
     gt_mask = -(temp.limbs[i] > T);
     lt_mask = -(temp.limbs[i] < 0);
     temp.limbs[i] -= (T & gt_mask);
     temp.limbs[i] += (T & lt_mask);
   }
-  for (int i = 1; i < NLIMBS - 1; ++i) {
-    temp.limbs[i] -= temp.limbs[11];
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    temp.limbs[i] -= temp.limbs[10];
     limit[i] = T;
   }
   int64_t all_t = -1;
-  for (int i = NLIMBS - 3; i >= 1; --i) {
+  for (int i = NLIMBS_REDUCED - 2; i >= 0; --i) {
     all_t &= -(temp.limbs[i+1] == T);
     limit[i] -= 1 & (~all_t);
   }
   gt_mask = 0;
   lt_mask = 0;
-  for (int i = 1; i < NLIMBS - 1; ++i) {
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
     temp.limbs[i] += 1 & gt_mask;
     temp.limbs[i] -= 1 & lt_mask;
     gt_mask = -(temp.limbs[i] > limit[i]);
     lt_mask = -(temp.limbs[i] < 0);
     temp.limbs[i] -= (T & gt_mask);
     temp.limbs[i] += (T & lt_mask);
-    result->limbs[i-1] = temp.limbs[i];
+    result->limbs[i] = temp.limbs[i];
   }
 }
 
@@ -90,7 +86,7 @@ void narrow_partial_complete(
 
   residue_narrow_t temp;
   for (int i = 0; i < NLIMBS; ++i) {
-    temp.limbs[i] = w->limbs[i] - w->limbs[0];
+    temp.limbs[i] = w->limbs[i] - w->limbs[10];
   }
 
   // This may be combined with the final reduction from a multiply.
@@ -98,28 +94,28 @@ void narrow_partial_complete(
 
   int gt_mask = 0;
   int lt_mask = 0;
-  for (int i = 1; i < NLIMBS; ++i) {
-    temp.limbs[i] = temp.limbs[i] - temp.limbs[0];
-    temp.limbs[i] += 1 & gt_mask;
-    temp.limbs[i] -= 1 & gt_mask;
-    gt_mask = -(temp.limbs[i] > T);
-    lt_mask = -(temp.limbs[i] < 0);
-    temp.limbs[i] -= (T & gt_mask);
-    temp.limbs[i] += (T & lt_mask);
-  }
-  for (int i = 1; i < NLIMBS; ++i) {
-    temp.limbs[i] -= temp.limbs[11];
-  }
-  gt_mask = 0;
-  lt_mask = 0;
-  for (int i = 1; i < NLIMBS - 1; ++i) {
+  for (int i = 0; i < NLIMBS - 1; ++i) {
+    temp.limbs[i] = temp.limbs[i] - temp.limbs[10];
     temp.limbs[i] += 1 & gt_mask;
     temp.limbs[i] -= 1 & lt_mask;
     gt_mask = -(temp.limbs[i] > T);
     lt_mask = -(temp.limbs[i] < 0);
     temp.limbs[i] -= (T & gt_mask);
     temp.limbs[i] += (T & lt_mask);
-    result->limbs[i-1] = temp.limbs[i];
+  }
+  for (int i = 0; i < NLIMBS - 1; ++i) {
+    temp.limbs[i] -= temp.limbs[10];
+  }
+  gt_mask = 0;
+  lt_mask = 0;
+  for (int i = 0; i < NLIMBS_REDUCED; ++i) {
+    temp.limbs[i] += 1 & gt_mask;
+    temp.limbs[i] -= 1 & lt_mask;
+    gt_mask = -(temp.limbs[i] > T);
+    lt_mask = -(temp.limbs[i] < 0);
+    temp.limbs[i] -= (T & gt_mask);
+    temp.limbs[i] += (T & lt_mask);
+    result->limbs[i] = temp.limbs[i];
   }
 }
 
@@ -129,15 +125,6 @@ int is_odd(residue_narrow_reduced_t *x) {
     result ^= x->limbs[i] & 0x1;
   }
   return result;
-}
-
-// Copy a 12x64-bit residue
-void copy_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x) {
-
-  for (int i = 0; i < NLIMBS; ++i) {
-    result->limbs[i] = x->limbs[i];
-  }
 }
 
 // Copy a 12x32-bit residue
@@ -159,29 +146,13 @@ void copy_narrow_reduced(
   }
 }
 
-// Produce a 64-bit residue
-void widen(
-  residue_wide_t *result, const residue_narrow_t * __restrict x) {
-  for (int i = 0; i < NLIMBS; ++i) {
-    result->limbs[i] = x->limbs[i];
-  }
-}
-
-// Subtract 2 12x64-bit residues.
-void sub_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y) {
+// Subtract 2 12x32-bit residues.
+void sub_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x,
+  const residue_narrow_t * __restrict y) {
 
   for (int i = 0; i < NLIMBS; ++i) {
     result->limbs[i] = x->limbs[i] - y->limbs[i];
-  }
-}
-
-// negate a 12x64-bit residue.
-void negate_wide(residue_wide_t *result, const residue_wide_t *x) {
-
-  for (int i = 0; i < NLIMBS; ++i) {
-    result->limbs[i] = -(x->limbs[i]);
   }
 }
 
@@ -204,13 +175,12 @@ void add_narrow(
   }
 }
 
-// Add 2 12x64-bit residues.
-void add_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y) {
+// Scale a narrow residue by 2.
+void double_narrow(
+  residue_narrow_t *result, const residue_narrow_t *x) {
 
   for (int i = 0; i < NLIMBS; ++i) {
-    result->limbs[i] = x->limbs[i] + y->limbs[i];
+    result->limbs[i] = x->limbs[i] << 1;
   }
 }
 
@@ -223,7 +193,7 @@ void double_wide(
   }
 }
 
-#define wrap(x) (((x + (NLIMBS - 1)) % (NLIMBS - 1)) + 1)
+#define wrap(x) (((x + (NLIMBS - 1)) % (NLIMBS - 1)))
 // Multiply two wide residues, and produce a wide result. The result is reduced
 // to 32 bits, but not narrowed for performance reasons.
 void mul_wide(
@@ -231,10 +201,10 @@ void mul_wide(
 
   residue_wide_t temp;
   for (int i = 0; i < NLIMBS - 1; ++i) {
-    temp.limbs[i + 1] = 0;
+    temp.limbs[i] = 0;
     int i_2 = (i + (-(i & 1) & (NLIMBS - 1))) >> 1;
     for (int j = 1; j < NLIMBS / 2; ++ j) {
-      temp.limbs[i + 1] +=
+      temp.limbs[i] +=
         (x->limbs[wrap(i_2 + j)] - x->limbs[wrap(i_2 - j)]) *
         (y->limbs[wrap(i_2 - j)] - y->limbs[wrap(i_2 + j)]);
     }
@@ -264,89 +234,60 @@ void mul_wide_narrow(
   reduce_step_wide(result, &temp);
 }
 
-// Multiply two narrow residues and produce a wide result. The result is reduced
-// to 32 bits, but not narrowed for performance reasons.
+// Multiply two narrow residues and produce a narrow result.
 void mul_narrow(
-  residue_wide_t *result, const residue_narrow_t *x,
+  residue_narrow_t *result, const residue_narrow_t *x,
   const residue_narrow_t *y) {
 
   residue_wide_t temp;
   for (int i = 0; i < NLIMBS - 1; ++i) {
-    temp.limbs[i + 1] = 0;
+    temp.limbs[i] = 0;
     int i_2 = (i + (-(i & 1) & (NLIMBS - 1))) >> 1;
     for (int j = 1; j < NLIMBS / 2; ++ j) {
-      temp.limbs[i + 1] +=
+      temp.limbs[i] +=
         ((int64_t) (x->limbs[wrap(i_2 + j)] - x->limbs[wrap(i_2 - j)])) *
         ((int64_t) (y->limbs[wrap(i_2 - j)] - y->limbs[wrap(i_2 + j)]));
     }
   }
-  temp.limbs[0] = temp.limbs[NLIMBS - 1];
+  temp.limbs[NLIMBS - 1] = temp.limbs[0];
   reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
-}
-
-// Multiply a wide residue by a small constant. The result is reduced to 32
-// bits, but not narrowed for performance reasons.
-void mul_wide_const(
-  residue_wide_t *result, const residue_wide_t *x, int32_t d) {
-
-  residue_wide_t temp;
-  for (int i = 0; i < NLIMBS; ++i) {
-    temp.limbs[i] = x->limbs[i] * d;
-  }
-  reduce_step_wide(result, &temp);
+  reduce_step_wide(&temp, &temp);
+  narrow(result, &temp);
 }
 
 // Multiply a narrow residue by a small constant. The result is reduced to 32
 // bits, but not narrowed for performance reasons.
 void mul_narrow_const(
-  residue_wide_t *result, const residue_narrow_t *x, int32_t d) {
+  residue_narrow_t *result, const residue_narrow_t *x, int32_t d) {
 
   residue_wide_t temp;
-  for (int i = 0; i < NLIMBS - 1; ++i) {
+  for (int i = 0; i < NLIMBS; ++i) {
     temp.limbs[i] = ((uint64_t) x->limbs[i]) * d;
   }
-  reduce_step_wide(result, &temp);
-}
-
-// Square a wide residue and produce a wide result. The result is reduced to 32
-// bits but not narrowed for performance reasons.
-void square_wide(
-  residue_wide_t *result, const residue_wide_t *x) {
-
-  residue_wide_t temp;
-  for (int i = 0; i < NLIMBS - 1; ++i) {
-    temp.limbs[i + 1] = 0;
-    int i_2 = (i + (-(i & 1) & (NLIMBS - 1))) >> 1;
-    for (int j = 1; j < NLIMBS / 2; ++ j) {
-      temp.limbs[i + 1] -=
-        (x->limbs[wrap(i_2 + j)] - x->limbs[wrap(i_2 - j)]) *
-        (x->limbs[wrap(i_2 + j)] - x->limbs[wrap(i_2 - j)]);
-    }
-  }
-  temp.limbs[0] = temp.limbs[NLIMBS - 1];
   reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
+  narrow(result, &temp);
 }
+
 
 // Square a narrow residue and produce a wide result. The result is reduced to
 // 32 bits but not narrowed for performance reasons.
 void square_narrow(
-  residue_wide_t *result, const residue_narrow_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
 
   residue_wide_t temp;
   for (int i = 0; i < NLIMBS - 1; ++i) {
-    temp.limbs[i + 1] = 0;
+    temp.limbs[i] = 0;
     int i_2 = (i + (-(i & 1) & (NLIMBS - 1))) >> 1;
     for (int j = 1; j < NLIMBS / 2; ++ j) {
-      temp.limbs[i + 1] -=
+      temp.limbs[i] -=
         ((int64_t) (x->limbs[wrap(i_2 + j)] - x->limbs[wrap(i_2 - j)])) *
         ((int64_t) (x->limbs[wrap(i_2 + j)] - x->limbs[wrap(i_2 - j)]));
     }
   }
-  temp.limbs[0] = temp.limbs[NLIMBS - 1];
+  temp.limbs[NLIMBS - 1] = temp.limbs[0];
   reduce_step_wide(&temp, &temp);
-  reduce_step_wide(result, &temp);
+  reduce_step_wide(&temp, &temp);
+  narrow(result, &temp);
 }
 
 // Approximately divide each coefficient by t. Carry the results.
@@ -392,16 +333,16 @@ void reduce_step_wide(
 // T/2. They should therefore resolve all carries in a single step, and all be
 // equal to the same value. Some other value may not reduce completely, but this
 // is fine, we will know it is not zero.
-int equal_wide(const residue_wide_t *x, const residue_wide_t *y) {
-  residue_wide_t temp;
+int equal_narrow(const residue_narrow_t *x, const residue_narrow_t *y) {
+  residue_narrow_t temp;
 
-  sub_wide(&temp, x, y);
-  int64_t delta = -temp.limbs[0] + (T / 2);
+  sub_narrow(&temp, x, y);
+  int32_t delta = -temp.limbs[0] + (T / 2);
   for (int i = 0; i < NLIMBS; ++i) {
     temp.limbs[i] += delta;
   }
 
-  reduce_step_wide(&temp, &temp);
+  reduce_step_narrow(&temp, &temp);
 
   delta = temp.limbs[0];
   int result = 0;
@@ -423,152 +364,146 @@ int equal_narrow_reduced(
   return !result;
 }
 
-static void nsquare_wide(
-  residue_wide_t *result, const residue_wide_t *x, int n) {
-  residue_wide_t temp;
+static inline void nsquare_narrow(
+  residue_narrow_t *result, const residue_narrow_t *x, int n) {
 
-  if (n <= 1) {
-    square_wide(result, x);
-    return;
+  square_narrow(result, x);
+  for (int i = 1; i < n; ++i) {
+    square_narrow(result, result);
   }
-  square_wide(&temp, x);
-  for (int i = 1; i < n - 1; ++i) {
-    square_wide(&temp, &temp);
-  }
-  square_wide(result, &temp);
 }
 
 static void raise_to_t(
-  residue_wide_t *result, const residue_wide_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
   // zi = z^(2^i - 1), z1 = x
-  residue_wide_t z2;
-  residue_wide_t z3;
-  residue_wide_t z5;
-  residue_wide_t z10;
-  residue_wide_t z11;
-  residue_wide_t z22;
-  residue_wide_t result_t;
+  residue_narrow_t z2;
+  residue_narrow_t z3;
+  residue_narrow_t z5;
+  residue_narrow_t z10;
+  residue_narrow_t z11;
+  residue_narrow_t z22;
+  residue_narrow_t result_t;
 
-  square_wide(&z2, x);
-  mul_wide(&z2, &z2, x);
-  square_wide(&z3, &z2);
-  mul_wide(&z3, &z3, x);
-  nsquare_wide(&z5, &z3, 2);
-  mul_wide(&z5, &z5, &z2);
-  nsquare_wide(&z10, &z5, 5);
-  mul_wide(&z10, &z10, &z5);
-  square_wide(&z11, &z10);
-  mul_wide(&z11, &z11, x);
-  nsquare_wide(&z22, &z11, 11);
-  mul_wide(&z22, &z22, &z11);
-  nsquare_wide(&result_t, &z22, 4);
-  mul_wide(result, &result_t, x);
+  square_narrow(&z2, x);
+  mul_narrow(&z2, &z2, x);
+  square_narrow(&z3, &z2);
+  mul_narrow(&z3, &z3, x);
+  nsquare_narrow(&z5, &z3, 2);
+  mul_narrow(&z5, &z5, &z2);
+  nsquare_narrow(&z10, &z5, 5);
+  mul_narrow(&z10, &z10, &z5);
+  square_narrow(&z11, &z10);
+  mul_narrow(&z11, &z11, x);
+  nsquare_narrow(&z22, &z11, 11);
+  mul_narrow(&z22, &z22, &z11);
+  nsquare_narrow(&result_t, &z22, 4);
+  mul_narrow(result, &result_t, x);
 }
 
 static void raise_to_phi_t(
-  residue_wide_t *result, const residue_wide_t *x, int n) {
-  residue_wide_t temp;
+  residue_narrow_t *result, const residue_narrow_t *x, int n) {
+  residue_narrow_t temp;
 
   raise_to_t(&temp, x);
 
   for (int i = 1; i < n; ++i) {
-    mul_wide(&temp, &temp, x);
+    mul_narrow(&temp, &temp, x);
     raise_to_t(&temp, &temp);
   }
 
-  mul_wide(result, &temp, x);
+  mul_narrow(result, &temp, x);
 }
 
 static void raise_to_t_minus_1_over_4(
-  residue_wide_t *result, const residue_wide_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
   // zi = z^(2^i - 1), z1 = x
-  residue_wide_t z2;
-  residue_wide_t z3;
-  residue_wide_t z5;
-  residue_wide_t z10;
-  residue_wide_t z11;
-  residue_wide_t z22;
+  residue_narrow_t z2;
+  residue_narrow_t z3;
+  residue_narrow_t z5;
+  residue_narrow_t z10;
+  residue_narrow_t z11;
+  residue_narrow_t z22;
 
-  square_wide(&z2, x);
-  mul_wide(&z2, &z2, x);
-  square_wide(&z3, &z2);
-  mul_wide(&z3, &z3, x);
-  nsquare_wide(&z5, &z3, 2);
-  mul_wide(&z5, &z5, &z2);
-  nsquare_wide(&z10, &z5, 5);
-  mul_wide(&z10, &z10, &z5);
-  square_wide(&z11, &z10);
-  mul_wide(&z11, &z11, x);
-  nsquare_wide(&z22, &z11, 11);
-  mul_wide(&z22, &z22, &z11);
-  nsquare_wide(result, &z22, 2);
+  square_narrow(&z2, x);
+  mul_narrow(&z2, &z2, x);
+  square_narrow(&z3, &z2);
+  mul_narrow(&z3, &z3, x);
+  nsquare_narrow(&z5, &z3, 2);
+  mul_narrow(&z5, &z5, &z2);
+  nsquare_narrow(&z10, &z5, 5);
+  mul_narrow(&z10, &z10, &z5);
+  square_narrow(&z11, &z10);
+  mul_narrow(&z11, &z11, x);
+  nsquare_narrow(&z22, &z11, 11);
+  mul_narrow(&z22, &z22, &z11);
+  nsquare_narrow(result, &z22, 2);
 }
 
 static void raise_to_p_minus_3_over_4(
-  residue_wide_t *result, const residue_wide_t *x) {
+  residue_narrow_t *result, const residue_narrow_t *x) {
 
-  residue_wide_t z4; //z to (t-1)/4
-  residue_wide_t z2; //z to (t-1)/2
-  residue_wide_t z3_4; //z to (3t+1)/4
-  residue_wide_t y_small;
-  residue_wide_t y, y_t4_y;
-  residue_wide_t raised;
+  residue_narrow_t z4; //z to (t-1)/4
+  residue_narrow_t z2; //z to (t-1)/2
+  residue_narrow_t z3_4; //z to (3t+1)/4
+  residue_narrow_t y_small;
+  residue_narrow_t y, y_t4_y;
+  residue_narrow_t raised;
 
   raise_to_t_minus_1_over_4(&z4, x);
-  square_wide(&z2, &z4);
-  mul_wide(&z3_4, &z2, &z4);
-  mul_wide(&z3_4, &z3_4, x);
+  square_narrow(&z2, &z4);
+  mul_narrow(&z3_4, &z2, &z4);
+  mul_narrow(&z3_4, &z3_4, x);
   raise_to_t(&raised, &z4);
-  mul_wide(&y_small, &z2, &raised);
+  mul_narrow(&y_small, &z2, &raised);
   raise_to_t(&raised, &y_small);
-  mul_wide(&y, &z3_4, &raised);
+  mul_narrow(&y, &z3_4, &raised);
   raise_to_t(&raised, &y);
   raise_to_t(&raised, &raised);
   raise_to_t(&raised, &raised);
   raise_to_t(&raised, &raised);
-  mul_wide(&y_t4_y, &raised, &y);
+  mul_narrow(&y_t4_y, &raised, &y);
   raise_to_t(&raised, &y_t4_y);
   raise_to_t(&raised, &raised);
   raise_to_t(&raised, &raised);
-  mul_wide(result, &raised, &y_small);
+  mul_narrow(result, &raised, &y_small);
 }
 
-int sqrt_inv_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y) {
-  residue_wide_t xy;
-  residue_wide_t y2;
-  residue_wide_t xy3;
-  residue_wide_t xy3_p_3_over_4;
-  residue_wide_t cand2;
-  residue_wide_t should_be_x;
+int sqrt_inv_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x,
+  const residue_narrow_t * __restrict y) {
+  residue_narrow_t xy;
+  residue_narrow_t y2;
+  residue_narrow_t xy3;
+  residue_narrow_t xy3_p_3_over_4;
+  residue_narrow_t cand2;
+  residue_narrow_t should_be_x;
 
-  square_wide(&y2, y);
-  mul_wide(&xy, x, y);
-  mul_wide(&xy3, &xy, &y2);
+  square_narrow(&y2, y);
+  mul_narrow(&xy, x, y);
+  mul_narrow(&xy3, &xy, &y2);
   raise_to_p_minus_3_over_4(&xy3_p_3_over_4, &xy3);
-  mul_wide(result, &xy, &xy3_p_3_over_4);
-  square_wide(&cand2, result);
-  mul_wide(&should_be_x, y, &cand2);
+  mul_narrow(result, &xy, &xy3_p_3_over_4);
+  square_narrow(&cand2, result);
+  mul_narrow(&should_be_x, y, &cand2);
 
-  return equal_wide(&should_be_x, x);
+  return equal_narrow(&should_be_x, x);
 }
 
-void invert_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x) {
+void invert_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x) {
 
-  residue_wide_t x_t_minus_1_over_4;
-  residue_wide_t x_t_minus_1;
-  residue_wide_t x_t;
-  residue_wide_t phi_8_x_t;
-  residue_wide_t phi_8_x_t_t;
+  residue_narrow_t x_t_minus_1_over_4;
+  residue_narrow_t x_t_minus_1;
+  residue_narrow_t x_t;
+  residue_narrow_t phi_8_x_t;
+  residue_narrow_t phi_8_x_t_t;
 
   raise_to_t_minus_1_over_4(&x_t_minus_1_over_4, x);
-  nsquare_wide(&x_t_minus_1, &x_t_minus_1_over_4, 2);
-  mul_wide(&x_t, &x_t_minus_1, x);
+  nsquare_narrow(&x_t_minus_1, &x_t_minus_1_over_4, 2);
+  mul_narrow(&x_t, &x_t_minus_1, x);
   raise_to_phi_t(&phi_8_x_t, &x_t, 8);
   raise_to_t(&phi_8_x_t_t, &phi_8_x_t);
-  mul_wide(result, &phi_8_x_t_t, &x_t_minus_1);
+  mul_narrow(result, &phi_8_x_t_t, &x_t_minus_1);
 }
 
 void encode(uint8_t *out, const residue_narrow_reduced_t * __restrict x) {

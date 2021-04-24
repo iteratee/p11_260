@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define NLIMBS_REDUCED 10
-#define NLIMBS 12
+#define NLIMBS 11
 #define T ((1 << 26) - 15)
 #define TBITS 26
 #define TMASK ((1 << 26) - 1)
@@ -15,20 +15,22 @@
 // Reduced to 10 limbs. For final results.
 typedef struct residue_narrow_reduced {
   __attribute__((__aligned__(8)))
-  int32_t limbs[10];
+  int32_t limbs[NLIMBS_REDUCED];
 } residue_narrow_reduced_t;
 
-// 11 limbs. Limb 10 is placed in slot 0, and slot 11.
+// 11 limbs.
 typedef struct residue_narrow {
-  __attribute__((__aligned__(16)))
-  int32_t limbs[12];
+  __attribute__((__aligned__(64)))
+  int32_t limbs[NLIMBS];
+  int32_t pad[16 - NLIMBS];
 } residue_narrow_t;
 
-// 11 limbs. Limb 10 is placed in slot 0 and slot 11. Wider for vector
+// 11 limbs.
 // compatibility.
 typedef struct residue_wide {
-  __attribute__((__aligned__(32)))
-  int64_t limbs[12];
+  __attribute__((__aligned__(64)))
+  int64_t limbs[NLIMBS];
+  int64_t pad[16 - NLIMBS];
 } residue_wide_t;
 
 residue_wide_t zero_wide;
@@ -63,9 +65,9 @@ int is_odd(residue_narrow_reduced_t *x);
 static inline void unnarrow_reduce(
   residue_narrow_t *result, const residue_narrow_reduced_t * __restrict x) {
 
-  result->limbs[0] = result->limbs[NLIMBS - 1] = 0;
+  result->limbs[10] = 0;
   for (int i = 0; i < NLIMBS_REDUCED; ++i) {
-    result->limbs[i+1] = x->limbs[i];
+    result->limbs[i] = x->limbs[i];
   }
 }
 
@@ -85,62 +87,43 @@ void copy_narrow_reduced(
   residue_narrow_reduced_t *result,
   const residue_narrow_reduced_t * __restrict x);
 
-// Subtract 2 12x64-bit residues.
-void sub_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y);
+// Subtract 2 11x32-bit residues.
+void sub_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x,
+  const residue_narrow_t * __restrict y);
 
 void negate_wide(residue_wide_t *result, const residue_wide_t *x);
 
 void negate_narrow(residue_narrow_t *result, const residue_narrow_t *x);
 
-// Add 2 12x32-bit residues.
+// Add 2 11x32-bit residues.
 void add_narrow(
   residue_narrow_t *result, const residue_narrow_t * __restrict x,
   const residue_narrow_t * __restrict y);
 
-// Add 2 12x64-bit residues.
+// Add 2 11x64-bit residues.
 void add_wide(
   residue_wide_t *result, const residue_wide_t * __restrict x,
   const residue_wide_t * __restrict y);
 
 // Scale a wide residue by 2.
-void double_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x);
+void double_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x);
 
-// Multiply two wide residues, and produce a wide result. The result is reduced
-// to 32 bits, but not narrowed for performance reasons.
-void mul_wide(
-  residue_wide_t *result, const residue_wide_t *x,
-  const residue_wide_t *y);
-// Multiply a wide residues by a narrow and produce a wide result. The result is
-// reduced to 32 bits, but not narrowed for performance reasons.
-void mul_wide_narrow(
-  residue_wide_t *result, const residue_wide_t *x,
-  const residue_narrow_t *y);
 // Multiply two narrow residues and produce a wide result. The result is reduced
-// to 32 bits, but not narrowed for performance reasons.
+// to 32 bits.
 void mul_narrow(
-  residue_wide_t *result, const residue_narrow_t *x,
+  residue_narrow_t *result, const residue_narrow_t *x,
   const residue_narrow_t *y);
 
-// Multiply a wide residue by a constant.
-void mul_wide_const(
-  residue_wide_t *result, const residue_wide_t * __restrict x, int32_t d);
-
-// Multiply a narrow residue by a constant, producing a wide result
+// Multiply a residue by a constant.
 void mul_narrow_const(
-  residue_wide_t *result, const residue_narrow_t *x, int32_t d);
+  residue_narrow_t *result, const residue_narrow_t * __restrict x, int32_t d);
 
-// Square a wide residue and produce a wide result. The result is reduced to 32
-// bits but not narrowed for performance reasons.
-void square_wide(
-  residue_wide_t *result, const residue_wide_t *x);
-
-// Square a narrow residue and produce a wide result. The result is reduced to
-// 32 bits but not narrowed for performance reasons.
+// Square a narrow residue and produce a narrow result. The result is reduced to
+// 32 bits.
 void square_narrow(
-  residue_wide_t *result, const residue_narrow_t *x);
+  residue_narrow_t *result, const residue_narrow_t *x);
 
 // Approximately divide each coefficient by t. Carry the results.
 void reduce_step_narrow(
@@ -151,17 +134,17 @@ void reduce_step_wide(
   residue_wide_t *result, const residue_wide_t *x);
 
 // Invert via fermat's theorem
-void invert_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x);
+void invert_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x);
 
 // Compute combined inverse and square root
 // returns true if x/y was a quadratic residue, and false otherwise.
-int sqrt_inv_wide(
-  residue_wide_t *result, const residue_wide_t * __restrict x,
-  const residue_wide_t * __restrict y);
+int sqrt_inv_narrow(
+  residue_narrow_t *result, const residue_narrow_t * __restrict x,
+  const residue_narrow_t * __restrict y);
 
 // Returns true if x == y. Computes in constant time.
-int equal_wide(const residue_wide_t * x, const residue_wide_t * y);
+int equal_narrow(const residue_narrow_t * x, const residue_narrow_t * y);
 
 int equal_narrow_reduced(
   const residue_narrow_reduced_t * x, const residue_narrow_reduced_t * y);

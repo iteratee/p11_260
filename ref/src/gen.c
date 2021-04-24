@@ -16,21 +16,21 @@ void gen_key(scalar_t * __restrict priv_key,
   // montgomery factor.
   mont_reduce_hash_mod_l(priv_key, &large_key);
 
-  projective_pt_wide_t result_pt;
+  projective_pt_narrow_t result_pt;
   scalar_comb_multiply(&result_pt, &base_comb, priv_key);
 
-  residue_wide_t z_inv;
+  residue_narrow_t z_inv;
 
-  invert_wide(&z_inv, &result_pt.z);
-  mul_wide(&result_pt.x, &result_pt.x, &z_inv);
-  mul_wide(&result_pt.y, &result_pt.y, &z_inv);
+  invert_narrow(&z_inv, &result_pt.z);
+  mul_narrow(&result_pt.x, &result_pt.x, &z_inv);
+  mul_narrow(&result_pt.y, &result_pt.y, &z_inv);
 
   residue_narrow_t temp_narrow;
-  narrow(&pub_key->x, &result_pt.x);
+  copy_narrow(&pub_key->x, &result_pt.x);
 
-  narrow(&pub_key->y, &result_pt.y);
+  copy_narrow(&pub_key->y, &result_pt.y);
 
-  explicit_bzero(&large_key, sizeof(large_key));
+  // explicit_bzero(&large_key, sizeof(large_key));
   explicit_bzero(&result_pt, sizeof(result_pt));
   explicit_bzero(&z_inv, sizeof(z_inv));
   explicit_bzero(&temp_narrow, sizeof(temp_narrow));

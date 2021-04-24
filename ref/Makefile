@@ -2,7 +2,7 @@
 # The name of the executable to be created
 BIN_NAME := p11_260_test
 # Compiler used
-CC = clang
+CC = clang-10
 # Extension of source files used in the project
 SRC_EXT = c
 # Path to the source directory, relative to the makefile
@@ -10,9 +10,9 @@ SRC_PATH = src
 # Space-separated pkg-config libraries used by this project
 LIBS =
 # General compiler flags
-COMPILE_FLAGS = -march=haswell -std=c11 -Wall -Wextra
+COMPILE_FLAGS = -march=skylake-avx512 -std=c11 -Wall -Wextra
 # Additional release-specific flags
-RCOMPILE_FLAGS = -O2 -D DEBUG
+RCOMPILE_FLAGS = -O2 -D DEBUG -g
 # Additional debug-specific flags
 DCOMPILE_FLAGS = -g -D DEBUG
 # Add additional include paths
