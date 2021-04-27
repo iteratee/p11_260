@@ -1,6 +1,6 @@
-#define _DEFAULT_SOURCE
 #include <string.h>
 #include "f11_260.h"
+#include "mul_inline.h"
 #include "scalar.h"
 #include "curve.h"
 #include "constant_time.h"
@@ -95,7 +95,7 @@ void affine_narrow_to_extended(
     result->z.limbs[i] = 0;
   }
   result->z.limbs[0] = 1;
-  mul_narrow(&result->t, &result->x, &result->y);
+  mul_narrow_i(&result->t, &result->x, &result->y);
 }
 
 void extended_to_projective_narrow(
@@ -119,7 +119,7 @@ void affine_to_readd_narrow(
   result->z.limbs[0] = 1;
 
   residue_narrow_t xy;
-  mul_narrow(&xy, &x->x, &x->y);
+  mul_narrow_i(&xy, &x->x, &x->y);
   mul_narrow_const(&result->dt, &xy, D);
 }
 
@@ -141,25 +141,25 @@ void affine_double(
 
   residue_narrow_t x_plus_y;
   residue_narrow_t a, b, e, e_tmp, g, g_minus_2, h;
-  square_narrow(&a, &x->x);
-  square_narrow(&b, &x->y);
+  square_narrow_i(&a, &x->x);
+  square_narrow_i(&b, &x->y);
 
-  add_narrow(&x_plus_y, &x->x, &x->y);
+  add_narrow_i(&x_plus_y, &x->x, &x->y);
 
-  square_narrow(&e, &x_plus_y);
-  sub_narrow(&e_tmp, &e, &a);
-  sub_narrow(&e, &e_tmp, &b);
-  add_narrow(&g, &a, &b);
+  square_narrow_i(&e, &x_plus_y);
+  sub_narrow_i(&e_tmp, &e, &a);
+  sub_narrow_i(&e, &e_tmp, &b);
+  add_narrow_i(&g, &a, &b);
 
   for (int i = 0; i < NLIMBS; ++i) {
     g_minus_2.limbs[i] = g.limbs[i];
   }
   g_minus_2.limbs[0] -= 2;
 
-  sub_narrow(&h, &a, &b);
-  mul_narrow(&result->x, &e, &g_minus_2);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->z, &g, &g_minus_2);
+  sub_narrow_i(&h, &a, &b);
+  mul_narrow_i(&result->x, &e, &g_minus_2);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->z, &g, &g_minus_2);
 }
 
 void affine_double_extended(
@@ -167,25 +167,25 @@ void affine_double_extended(
 
   residue_narrow_t x_plus_y;
   residue_narrow_t a, b, e, e_tmp, g, g_minus_2, h;
-  square_narrow(&a, &x->x);
-  square_narrow(&b, &x->y);
+  square_narrow_i(&a, &x->x);
+  square_narrow_i(&b, &x->y);
 
-  add_narrow(&x_plus_y, &x->x, &x->y);
-  square_narrow(&e, &x_plus_y);
-  sub_narrow(&e_tmp, &e, &a);
-  sub_narrow(&e, &e_tmp, &b);
-  add_narrow(&g, &a, &b);
+  add_narrow_i(&x_plus_y, &x->x, &x->y);
+  square_narrow_i(&e, &x_plus_y);
+  sub_narrow_i(&e_tmp, &e, &a);
+  sub_narrow_i(&e, &e_tmp, &b);
+  add_narrow_i(&g, &a, &b);
 
   for (int i = 0; i < NLIMBS; ++i) {
     g_minus_2.limbs[i] = g.limbs[i];
   }
   g_minus_2.limbs[0] -= 2;
 
-  sub_narrow(&h, &a, &b);
-  mul_narrow(&result->x, &e, &g_minus_2);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->t, &e, &h);
-  mul_narrow(&result->z, &g, &g_minus_2);
+  sub_narrow_i(&h, &a, &b);
+  mul_narrow_i(&result->x, &e, &g_minus_2);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->t, &e, &h);
+  mul_narrow_i(&result->z, &g, &g_minus_2);
 }
 
 void projective_double(
@@ -193,22 +193,22 @@ void projective_double(
 
   residue_narrow_t x_plus_y;
   residue_narrow_t a, b, c, c_temp, e, e_tmp, f, g, h;
-  add_narrow(&x_plus_y, &x->x, &x->y);
-  square_narrow(&a, &x->x);
-  square_narrow(&b, &x->y);
-  square_narrow(&c_temp, &x->z);
+  add_narrow_i(&x_plus_y, &x->x, &x->y);
+  square_narrow_i(&a, &x->x);
+  square_narrow_i(&b, &x->y);
+  square_narrow_i(&c_temp, &x->z);
   double_narrow(&c, &c_temp);
 
-  square_narrow(&e, &x_plus_y);
-  sub_narrow(&e_tmp, &e, &a);
-  sub_narrow(&e, &e_tmp, &b);
-  add_narrow(&g, &a, &b);
-  sub_narrow(&f, &g, &c);
-  sub_narrow(&h, &a, &b);
+  square_narrow_i(&e, &x_plus_y);
+  sub_narrow_i(&e_tmp, &e, &a);
+  sub_narrow_i(&e, &e_tmp, &b);
+  add_narrow_i(&g, &a, &b);
+  sub_narrow_i(&f, &g, &c);
+  sub_narrow_i(&h, &a, &b);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->z, &f, &g);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->z, &f, &g);
 }
 
 void projective_double_extended(
@@ -216,23 +216,23 @@ void projective_double_extended(
 
   residue_narrow_t x_plus_y;
   residue_narrow_t a, b, c, c_temp, e, e_tmp, f, g, h;
-  add_narrow(&x_plus_y, &x->x, &x->y);
-  square_narrow(&a, &x->x);
-  square_narrow(&b, &x->y);
-  square_narrow(&c_temp, &x->z);
+  add_narrow_i(&x_plus_y, &x->x, &x->y);
+  square_narrow_i(&a, &x->x);
+  square_narrow_i(&b, &x->y);
+  square_narrow_i(&c_temp, &x->z);
   double_narrow(&c, &c_temp);
 
-  square_narrow(&e, &x_plus_y);
-  sub_narrow(&e_tmp, &e, &a);
-  sub_narrow(&e, &e_tmp, &b);
-  add_narrow(&g, &a, &b);
-  sub_narrow(&f, &g, &c);
-  sub_narrow(&h, &a, &b);
+  square_narrow_i(&e, &x_plus_y);
+  sub_narrow_i(&e_tmp, &e, &a);
+  sub_narrow_i(&e, &e_tmp, &b);
+  add_narrow_i(&g, &a, &b);
+  sub_narrow_i(&f, &g, &c);
+  sub_narrow_i(&h, &a, &b);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->t, &e, &h);
-  mul_narrow(&result->z, &f, &g);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->t, &e, &h);
+  mul_narrow_i(&result->z, &f, &g);
 }
 
 void extended_double_extended(
@@ -240,23 +240,23 @@ void extended_double_extended(
 
   residue_narrow_t x_plus_y;
   residue_narrow_t a, b, c, c_temp, e, e_tmp, f, g, h;
-  add_narrow(&x_plus_y, &x->x, &x->y);
-  square_narrow(&a, &x->x);
-  square_narrow(&b, &x->y);
-  square_narrow(&c_temp, &x->z);
-  double_narrow(&c, &c_temp);
+  add_narrow_i(&x_plus_y, &x->x, &x->y);
+  square_narrow_i(&a, &x->x);
+  square_narrow_i(&b, &x->y);
+  square_narrow_i(&c_temp, &x->z);
+  double_narrow_i(&c, &c_temp);
 
-  square_narrow(&e, &x_plus_y);
-  sub_narrow(&e_tmp, &e, &a);
-  sub_narrow(&e, &e_tmp, &b);
-  add_narrow(&g, &a, &b);
-  sub_narrow(&f, &g, &c);
-  sub_narrow(&h, &a, &b);
+  square_narrow_i(&e, &x_plus_y);
+  sub_narrow_i(&e_tmp, &e, &a);
+  sub_narrow_i(&e, &e_tmp, &b);
+  add_narrow_i(&g, &a, &b);
+  sub_narrow_i(&f, &g, &c);
+  sub_narrow_i(&h, &a, &b);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->t, &e, &h);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->z, &f, &g);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->t, &e, &h);
 }
 
 void projective_add(
@@ -266,29 +266,29 @@ void projective_add(
   residue_narrow_t x1_plus_y1, x2_plus_y2;
   residue_narrow_t a, b, c, d, e, e_temp, f, g, t1, t2;
 
-  mul_narrow(&a, &x1->z, &x2->z);
-  square_narrow(&b, &a);
-  mul_narrow(&c, &x1->x, &x2->x);
-  mul_narrow(&d, &x1->y, &x2->y);
+  mul_narrow_i(&a, &x1->z, &x2->z);
+  square_narrow_i(&b, &a);
+  mul_narrow_i(&c, &x1->x, &x2->x);
+  mul_narrow_i(&d, &x1->y, &x2->y);
   mul_narrow_const(&e_temp, &c, D);
-  mul_narrow(&e, &e_temp, &d);
+  mul_narrow_i(&e, &e_temp, &d);
 
-  sub_narrow(&f, &b, &e);
-  add_narrow(&g, &b, &e);
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
+  sub_narrow_i(&f, &b, &e);
+  add_narrow_i(&g, &b, &e);
+  add_narrow_i(&x1_plus_y1, &x1->x, &x1->y);
+  add_narrow_i(&x2_plus_y2, &x2->x, &x2->y);
 
-  mul_narrow(&t1, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&t2, &t1, &c);
-  sub_narrow(&t1, &t2, &d);
-  mul_narrow(&t2, &t1, &f);
-  mul_narrow(&result->x, &t2, &a);
+  mul_narrow_i(&t1, &x1_plus_y1, &x2_plus_y2);
+  sub_narrow_i(&t2, &t1, &c);
+  sub_narrow_i(&t1, &t2, &d);
+  mul_narrow_i(&t2, &t1, &f);
+  mul_narrow_i(&result->x, &t2, &a);
 
-  sub_narrow(&t1, &d, &c);
-  mul_narrow(&t2, &t1, &g);
-  mul_narrow(&result->y, &t2, &a);
+  sub_narrow_i(&t1, &d, &c);
+  mul_narrow_i(&t2, &t1, &g);
+  mul_narrow_i(&result->y, &t2, &a);
 
-  mul_narrow(&result->z, &f, &g);
+  mul_narrow_i(&result->z, &f, &g);
 }
 
 void extended_add(
@@ -298,24 +298,24 @@ void extended_add(
   residue_narrow_t x1_plus_y1, x2_plus_y2;
   residue_narrow_t a, b, c, c_temp, d, e, e_temp, f, g, h;
 
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
+  mul_narrow_i(&a, &x1->x, &x2->x);
+  mul_narrow_i(&b, &x1->y, &x2->y);
   mul_narrow_const(&c_temp, &x1->t, D);
-  mul_narrow(&c, &c_temp, &x2->t);
-  mul_narrow(&d, &x1->z, &x2->z);
+  mul_narrow_i(&c, &c_temp, &x2->t);
+  mul_narrow_i(&d, &x1->z, &x2->z);
 
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  mul_narrow(&e, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e, &a);
-  sub_narrow(&e, &e_temp, &b);
-  sub_narrow(&f, &d, &c);
-  add_narrow(&g, &d, &c);
-  sub_narrow(&h, &b, &a);
+  add_narrow_i(&x1_plus_y1, &x1->x, &x1->y);
+  add_narrow_i(&x2_plus_y2, &x2->x, &x2->y);
+  mul_narrow_i(&e, &x1_plus_y1, &x2_plus_y2);
+  sub_narrow_i(&e_temp, &e, &a);
+  sub_narrow_i(&e, &e_temp, &b);
+  sub_narrow_i(&f, &d, &c);
+  add_narrow_i(&g, &d, &c);
+  sub_narrow_i(&h, &b, &a);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->z, &f, &g);
+  mul_narrow_i(&result->y, &g, &h);
 }
 
 void extended_add_extended(
@@ -325,25 +325,25 @@ void extended_add_extended(
   residue_narrow_t x1_plus_y1, x2_plus_y2;
   residue_narrow_t a, b, c, c_temp, d, e, e_temp, f, g, h;
 
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
+  mul_narrow_i(&a, &x1->x, &x2->x);
+  mul_narrow_i(&b, &x1->y, &x2->y);
   mul_narrow_const(&c_temp, &x1->t, D);
-  mul_narrow(&c, &c_temp, &x2->t);
-  mul_narrow(&d, &x1->z, &x2->z);
+  mul_narrow_i(&c, &c_temp, &x2->t);
+  mul_narrow_i(&d, &x1->z, &x2->z);
 
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  mul_narrow(&e, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e, &a);
-  sub_narrow(&e, &e_temp, &b);
-  sub_narrow(&f, &d, &c);
-  add_narrow(&g, &d, &c);
-  sub_narrow(&h, &b, &a);
+  add_narrow_i(&x1_plus_y1, &x1->x, &x1->y);
+  add_narrow_i(&x2_plus_y2, &x2->x, &x2->y);
+  mul_narrow_i(&e, &x1_plus_y1, &x2_plus_y2);
+  sub_narrow_i(&e_temp, &e, &a);
+  sub_narrow_i(&e, &e_temp, &b);
+  sub_narrow_i(&f, &d, &c);
+  add_narrow_i(&g, &d, &c);
+  sub_narrow_i(&h, &b, &a);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->t, &e, &h);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->z, &f, &g);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->t, &e, &h);
 }
 
 void extended_readd_narrow_extended(
@@ -354,24 +354,24 @@ void extended_readd_narrow_extended(
   residue_narrow_t x2_plus_y2;
   residue_narrow_t a, b, c, d, e, e_temp, f, g, h;
 
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
-  mul_narrow(&c, &x1->t, &x2->dt);
-  mul_narrow(&d, &x1->z, &x2->z);
+  mul_narrow_i(&a, &x1->x, &x2->x);
+  mul_narrow_i(&b, &x1->y, &x2->y);
+  mul_narrow_i(&c, &x1->t, &x2->dt);
+  mul_narrow_i(&d, &x1->z, &x2->z);
 
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  mul_narrow(&e, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e, &a);
-  sub_narrow(&e, &e_temp, &b);
-  sub_narrow(&f, &d, &c);
-  add_narrow(&g, &d, &c);
-  sub_narrow(&h, &b, &a);
+  add_narrow_i(&x1_plus_y1, &x1->x, &x1->y);
+  add_narrow_i(&x2_plus_y2, &x2->x, &x2->y);
+  mul_narrow_i(&e, &x1_plus_y1, &x2_plus_y2);
+  sub_narrow_i(&e_temp, &e, &a);
+  sub_narrow_i(&e, &e_temp, &b);
+  sub_narrow_i(&f, &d, &c);
+  add_narrow_i(&g, &d, &c);
+  sub_narrow_i(&h, &b, &a);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->t, &e, &h);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->z, &f, &g);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->t, &e, &h);
 }
 
 void extended_readd_narrow(
@@ -382,23 +382,23 @@ void extended_readd_narrow(
   residue_narrow_t x2_plus_y2;
   residue_narrow_t a, b, c, d, e, e_temp, f, g, h;
 
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
-  mul_narrow(&c, &x1->t, &x2->dt);
-  mul_narrow(&d, &x1->z, &x2->z);
+  mul_narrow_i(&a, &x1->x, &x2->x);
+  mul_narrow_i(&b, &x1->y, &x2->y);
+  mul_narrow_i(&c, &x1->t, &x2->dt);
+  mul_narrow_i(&d, &x1->z, &x2->z);
 
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  mul_narrow(&e, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e, &a);
-  sub_narrow(&e, &e_temp, &b);
-  sub_narrow(&f, &d, &c);
-  add_narrow(&g, &d, &c);
-  sub_narrow(&h, &b, &a);
+  add_narrow_i(&x1_plus_y1, &x1->x, &x1->y);
+  add_narrow_i(&x2_plus_y2, &x2->x, &x2->y);
+  mul_narrow_i(&e, &x1_plus_y1, &x2_plus_y2);
+  sub_narrow_i(&e_temp, &e, &a);
+  sub_narrow_i(&e, &e_temp, &b);
+  sub_narrow_i(&f, &d, &c);
+  add_narrow_i(&g, &d, &c);
+  sub_narrow_i(&h, &b, &a);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->z, &f, &g);
+  mul_narrow_i(&result->y, &g, &h);
 }
 
 #include <stdio.h>
@@ -417,23 +417,23 @@ void extended_readd_affine_narrow_extended(
   residue_narrow_t x2_plus_y2;
   residue_narrow_t a, b, c, e, e_temp, f, g, h;
 
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
-  mul_narrow(&c, &x1->t, &x2->dt);
+  mul_narrow_i(&a, &x1->x, &x2->x);
+  mul_narrow_i(&b, &x1->y, &x2->y);
+  mul_narrow_i(&c, &x1->t, &x2->dt);
 
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  mul_narrow(&e, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e, &a);
-  sub_narrow(&e, &e_temp, &b);
-  sub_narrow(&f, &x1->z, &c);
-  add_narrow(&g, &x1->z, &c);
-  sub_narrow(&h, &b, &a);
+  add_narrow_i(&x1_plus_y1, &x1->x, &x1->y);
+  add_narrow_i(&x2_plus_y2, &x2->x, &x2->y);
+  mul_narrow_i(&e, &x1_plus_y1, &x2_plus_y2);
+  sub_narrow_i(&e_temp, &e, &a);
+  sub_narrow_i(&e, &e_temp, &b);
+  sub_narrow_i(&f, &x1->z, &c);
+  add_narrow_i(&g, &x1->z, &c);
+  sub_narrow_i(&h, &b, &a);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->t, &e, &h);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->z, &f, &g);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&result->t, &e, &h);
 }
 
 void extended_readd_readd_narrow(
@@ -445,24 +445,24 @@ void extended_readd_readd_narrow(
   residue_narrow_t x2_plus_y2;
   residue_narrow_t a, b, c, d, e, e_temp, f, g, h, t3;
 
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
-  mul_narrow(&c, &x1->t, &x2->dt);
-  mul_narrow(&d, &x1->z, &x2->z);
+  mul_narrow_i(&a, &x1->x, &x2->x);
+  mul_narrow_i(&b, &x1->y, &x2->y);
+  mul_narrow_i(&c, &x1->t, &x2->dt);
+  mul_narrow_i(&d, &x1->z, &x2->z);
 
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  mul_narrow(&e, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e, &a);
-  sub_narrow(&e, &e_temp, &b);
-  sub_narrow(&f, &d, &c);
-  add_narrow(&g, &d, &c);
-  sub_narrow(&h, &b, &a);
+  add_narrow_i(&x1_plus_y1, &x1->x, &x1->y);
+  add_narrow_i(&x2_plus_y2, &x2->x, &x2->y);
+  mul_narrow_i(&e, &x1_plus_y1, &x2_plus_y2);
+  sub_narrow_i(&e_temp, &e, &a);
+  sub_narrow_i(&e, &e_temp, &b);
+  sub_narrow_i(&f, &d, &c);
+  add_narrow_i(&g, &d, &c);
+  sub_narrow_i(&h, &b, &a);
 
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&t3, &e, &h);
+  mul_narrow_i(&result->x, &e, &f);
+  mul_narrow_i(&result->z, &f, &g);
+  mul_narrow_i(&result->y, &g, &h);
+  mul_narrow_i(&t3, &e, &h);
 
   mul_narrow_const(&result->dt, &t3, D);
 }
@@ -482,7 +482,7 @@ void affine_readd_to_extended(
 
   copy_narrow(&result->x, &x->x);
   copy_narrow(&result->y, &x->y);
-  mul_narrow(&result->t, &x->x, &x->y);
+  mul_narrow_i(&result->t, &x->x, &x->y);
   for (int i = 0; i < NLIMBS; ++i) {
     result->z.limbs[i] = 0;
   }
@@ -634,12 +634,12 @@ int point_decompress(
   residue_narrow_reduced_t temp;
 
   unnarrow_reduce(&y_n, y);
-  square_narrow(&y2, &y_n);
+  square_narrow_i(&y2, &y_n);
   copy_narrow(&result->y, &y_n);
 
-  sub_narrow(&u, &one_narrow, &y2);
+  sub_narrow_i(&u, &one_narrow, &y2);
   mul_narrow_const(&y2, &y2, D);
-  sub_narrow(&v, &one_narrow, &y2);
+  sub_narrow_i(&v, &one_narrow, &y2);
 
   if (sqrt_inv_narrow(&result->x, &u, &v)) {
     narrow_partial_complete(&temp, &result->x);

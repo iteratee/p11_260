@@ -10,20 +10,27 @@
 
 #include "sign.h"
 
+#include "curve.c"
+#include "gen.c"
+#include "constant_time.c"
+#include "comb.c"
+
 void sign(signature_t *result, scalar_t *priv_key,
   const uint8_t *pub_key, const uint8_t *msg, size_t msg_len) {
   blake2b_state hash_ctxt;
 
-  char session_key_wash[16];
+  // char session_key_wash[16];
 
   scalar_hash_t scalar_large;
   scalar_t session_key;
 
-  arc4random_buf(session_key_wash, sizeof(session_key_wash));
-  blake2b_init_key(&hash_ctxt, 64, session_key_wash, sizeof(session_key_wash));
+  // arc4random_buf(session_key_wash, sizeof(session_key_wash));
+  // blake2b_init_key(&hash_ctxt, 64, session_key_wash, sizeof(session_key_wash));
+  blake2b_init(&hash_ctxt, 64);
   blake2b_update(&hash_ctxt, (uint8_t *) priv_key, SCALAR_BYTES);
   blake2b_update(&hash_ctxt, (uint8_t *) msg, msg_len);
   blake2b_final(&hash_ctxt, (uint8_t *) &scalar_large, sizeof(scalar_hash_t));
+
 
   reduce_hash_mod_l(&session_key, &scalar_large);
 
@@ -59,7 +66,7 @@ void sign(signature_t *result, scalar_t *priv_key,
 
   explicit_bzero(&session_key, sizeof(session_key));
   explicit_bzero(&hash_scalar, sizeof(hash_scalar));
-  explicit_bzero(&session_key_wash, sizeof(session_key_wash));
+  // explicit_bzero(&session_key_wash, sizeof(session_key_wash));
 }
 
 int verify(

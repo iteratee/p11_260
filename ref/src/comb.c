@@ -1,4 +1,3 @@
-#define _DEFAULT_SOURCE
 #include <string.h>
 #include "comb.h"
 #include "curve.h"
