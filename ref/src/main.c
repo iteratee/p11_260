@@ -113,7 +113,7 @@ int main(int _argc, char **argv) {
     },
   };
 
-  #if 0
+  #if 1
   residue_narrow_t result;
   residue_narrow_reduced_t result_narrow_reduced;
 
@@ -511,7 +511,7 @@ int main(int _argc, char **argv) {
     &expected_gray_code_end3.y));
   #endif
 
-  #if 0
+  #if 1
   for (int i = 0; i<1; ++i) {
     scalar_comb_multiply(&result_pt, &base_comb, &mult_scalar);
   }
@@ -539,21 +539,21 @@ int main(int _argc, char **argv) {
   gen_key(&priv_key, &pub_key);
   memcpy(encoded_sk, &priv_key, SCALAR_BYTES);
   encode_pub_key(encoded_sk + SCALAR_BYTES, &pub_key);
-  #if 0
+  #if 1
   priv_key_decoded.limbs[SCALAR_LIMBS - 1] = 0;
   memcpy(&priv_key_decoded, encoded_sk, SCALAR_BYTES);
   for (int j = 0; j < SCALAR_LIMBS; ++j) {
     assert(priv_key.limbs[j] == priv_key_decoded.limbs[j]);
   }
   #endif
-  for (int i = 0; i < 1000000; ++i) {
+  for (int i = 0; i < 1; ++i) {
     uint8_t encoded_sig[65];
     const uint8_t *msg = (uint8_t *) "Hello World!";
     const size_t msglen = 13;
     signature_t result;
     sign(&result, &priv_key_decoded, encoded_sk + SCALAR_BYTES, msg, msglen);
     encode_sig(encoded_sig, &result);
-    #if 0
+    #if 1
     if (1) {
       signature_t result_decoded;
       decode_sig(&result_decoded, encoded_sig);

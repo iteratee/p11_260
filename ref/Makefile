@@ -10,7 +10,7 @@ SRC_PATH = src
 # Space-separated pkg-config libraries used by this project
 LIBS =
 # General compiler flags
-COMPILE_FLAGS = -march=skylake-avx512 -std=c11 -Wall -Wextra
+COMPILE_FLAGS = -march=haswell -std=c11 -Wall -Wextra
 # Additional release-specific flags
 RCOMPILE_FLAGS = -O2 -D DEBUG -g
 # Additional debug-specific flags

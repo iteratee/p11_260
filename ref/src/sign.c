@@ -5,12 +5,13 @@
 
 #include "comb.h"
 #include "curve.h"
-#include "f11_260.h"
 #include "scalar.h"
 
 #include "sign.h"
 
+#include "f11_260.c"
 #include "curve.c"
+#include "scalar.c"
 #include "gen.c"
 #include "constant_time.c"
 #include "comb.c"

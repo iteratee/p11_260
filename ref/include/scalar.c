@@ -1,4 +1,3 @@
-#define _DEFAULT_SOURCE
 #include <string.h>
 #include <stdint.h>
 #include "f11_260.h"
