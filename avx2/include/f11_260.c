@@ -1412,20 +1412,6 @@ static void raise_to_t2(
   mul_wide(result, &result_t, x);
 }
 
-static void raise_to_phi_t(
-  residue_wide_t *result, const residue_wide_t *x, int n) {
-  residue_wide_t temp;
-
-  raise_to_t(&temp, x);
-
-  for (int i = 1; i < n; ++i) {
-    mul_wide(&temp, &temp, x);
-    raise_to_t(&temp, &temp);
-  }
-
-  mul_wide(result, &temp, x);
-}
-
 static void raise_to_t_minus_1_over_4(
   residue_wide_t *result, const residue_wide_t *x) {
   // zi = z^(2^i - 1), z1 = x

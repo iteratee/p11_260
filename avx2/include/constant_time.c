@@ -18,7 +18,7 @@ static inline void mask_copy_narrow(
 // 12 * 32 * 4 = 6 * 256
 void constant_time_extended_narrow_lookup(
   extended_pt_readd_narrow_t *result, int i, int n,
-  extended_pt_readd_narrow_t *table) {
+  const extended_pt_readd_narrow_t *table) {
 
   __m256i accum[6];
   __m256i big_i = _mm256_set1_epi32(i);
@@ -44,7 +44,7 @@ void constant_time_extended_narrow_lookup(
 
 void constant_time_extended_affine_narrow_lookup(
   extended_affine_pt_readd_narrow_t *result, int i, int n,
-  extended_affine_pt_readd_narrow_t *table) {
+  const extended_affine_pt_readd_narrow_t *table) {
 
   __m256i accum[5];
   __m256i big_i = _mm256_set1_epi32(i);
