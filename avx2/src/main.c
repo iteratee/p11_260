@@ -106,9 +106,9 @@ int main(int _argc, char **argv) {
 
   residue_wide_t sqrt_x_plus_2_over_y = {
     .limbs = {
-      0x040bbb0, 0x3fa8549, 0x0706e5c, 0x3b33dc9,
-      0x3401712, 0x3a58fb3, 0x076ec4f, 0x3347ad0,
-      0x16ca1b0, 0x26ed559, 0x06033f0, 0x040bbb0,
+      0x30e1c97, 0x2c7e63f, 0x33dcf44, 0x2809ebf,
+      0x20d7809, 0x272f0aa, 0x3444d37, 0x201dbc6,
+      0x03a02a7, 0x13c3650, 0x32d94d8, 0x30e1c97,
     },
   };
 
@@ -335,6 +335,12 @@ int main(int _argc, char **argv) {
   assert(sqrt_inv_wide(&result, &x_plus_two, &y_wide));
   for (int i = 0; i < NLIMBS; ++i) {
     assert(sqrt_x_plus_2_over_y.limbs[i] == result.limbs[i]);
+  }
+  {
+    residue_wide_t tmp, tmp2;
+    square_wide(&tmp, &result);
+    mul_wide(&tmp2, &tmp, &y_wide);
+    assert(equal_wide(&tmp2, &x_plus_two));
   }
 
   invert_wide(&result, &x_wide);

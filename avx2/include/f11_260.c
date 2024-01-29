@@ -1470,17 +1470,13 @@ int sqrt_inv_wide(
   residue_wide_t *result, const residue_wide_t * __restrict x,
   const residue_wide_t * __restrict y) {
   residue_wide_t xy;
-  residue_wide_t y2;
-  residue_wide_t xy3;
-  residue_wide_t xy3_p_3_over_4;
+  residue_wide_t xy_p_3_over_4;
   residue_wide_t cand2;
   residue_wide_t should_be_x;
 
-  square_wide(&y2, y);
   mul_wide(&xy, x, y);
-  mul_wide(&xy3, &xy, &y2);
-  raise_to_p_minus_3_over_4(&xy3_p_3_over_4, &xy3);
-  mul_wide(result, &xy, &xy3_p_3_over_4);
+  raise_to_p_minus_3_over_4(&xy_p_3_over_4, &xy);
+  mul_wide(result, x, &xy_p_3_over_4);
   square_wide(&cand2, result);
   mul_wide(&should_be_x, y, &cand2);
 

@@ -515,17 +515,13 @@ int sqrt_inv_narrow(
   residue_narrow_t *result, const residue_narrow_t * __restrict x,
   const residue_narrow_t * __restrict y) {
   residue_narrow_t xy;
-  residue_narrow_t y2;
-  residue_narrow_t xy3;
-  residue_narrow_t xy3_p_3_over_4;
+  residue_narrow_t xy_p_3_over_4;
   residue_narrow_t cand2;
   residue_narrow_t should_be_x;
 
-  square_narrow(&y2, y);
   mul_narrow(&xy, x, y);
-  mul_narrow(&xy3, &xy, &y2);
-  raise_to_p_minus_3_over_4(&xy3_p_3_over_4, &xy3);
-  mul_narrow(result, &xy, &xy3_p_3_over_4);
+  raise_to_p_minus_3_over_4(&xy_p_3_over_4, &xy);
+  mul_narrow(result, x, &xy_p_3_over_4);
   square_narrow(&cand2, result);
   mul_narrow(&should_be_x, y, &cand2);
 
