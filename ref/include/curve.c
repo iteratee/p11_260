@@ -122,33 +122,6 @@ void affine_to_readd_narrow(
   mul_narrow_const(&result->dt, &xy, D);
 }
 
-void affine_to_affine_readd_narrow(
-  extended_affine_pt_readd_narrow_t *result,
-  const affine_pt_narrow_t * __restrict x) {
-
-  for(int i = 0; i < NLIMBS; ++i) {
-    result->x.limbs[i] = x->x.limbs[i];
-    result->y.limbs[i] = x->y.limbs[i];
-  }
-
-  residue_narrow_t xy;
-  mul_narrow(&xy, &x->x, &x->y);
-  mul_narrow_const(&result->dt, &xy, D);
-}
-
-void affine_readd_to_readd_narrow(
-  extended_pt_readd_narrow_t *result,
-  const extended_affine_pt_readd_narrow_t * __restrict x) {
-
-  for(int i = 0; i < NLIMBS; ++i) {
-    result->x.limbs[i] = x->x.limbs[i];
-    result->y.limbs[i] = x->y.limbs[i];
-    result->dt.limbs[i] = x->dt.limbs[i];
-    result->z.limbs[i] = 0;
-  }
-  result->z.limbs[0] = 1;
-}
-
 void extended_to_readd_narrow_neg(
   extended_pt_readd_narrow_t *result,
   const extended_pt_narrow_t * __restrict x) {
@@ -263,30 +236,6 @@ void projective_double_extended(
 
 void extended_double_extended(
   extended_pt_narrow_t *result, const extended_pt_narrow_t *x) {
-
-  residue_narrow_t x_plus_y;
-  residue_narrow_t a, b, c, c_temp, e, e_tmp, f, g, h;
-  add_narrow(&x_plus_y, &x->x, &x->y);
-  square_narrow(&a, &x->x);
-  square_narrow(&b, &x->y);
-  square_narrow(&c_temp, &x->z);
-  double_narrow(&c, &c_temp);
-
-  square_narrow(&e, &x_plus_y);
-  sub_narrow(&e_tmp, &e, &a);
-  sub_narrow(&e, &e_tmp, &b);
-  add_narrow(&g, &a, &b);
-  sub_narrow(&f, &g, &c);
-  sub_narrow(&h, &a, &b);
-
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&result->t, &e, &h);
-}
-
-void extended_readd_double_extended(
-  extended_pt_narrow_t *result, const extended_pt_readd_narrow_t *x) {
 
   residue_narrow_t x_plus_y;
   residue_narrow_t a, b, c, c_temp, e, e_tmp, f, g, h;
@@ -486,36 +435,6 @@ void extended_readd_affine_narrow_extended(
   mul_narrow(&result->t, &e, &h);
 }
 
-void extended_readd_affine_narrow_extended_readd(
-  extended_pt_readd_narrow_t *result,
-  const extended_pt_narrow_t * __restrict x1,
-  const extended_affine_pt_readd_narrow_t * __restrict x2) {
-
-  residue_narrow_t x1_plus_y1;
-  residue_narrow_t x2_plus_y2;
-  residue_narrow_t a, b, c, e, e_temp, f, g, h, t3;
-
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
-  mul_narrow(&c, &x1->t, &x2->dt);
-
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  mul_narrow(&e, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e, &a);
-  sub_narrow(&e, &e_temp, &b);
-  sub_narrow(&f, &x1->z, &c);
-  add_narrow(&g, &x1->z, &c);
-  sub_narrow(&h, &b, &a);
-
-  mul_narrow(&result->x, &e, &f);
-  mul_narrow(&result->z, &f, &g);
-  mul_narrow(&result->y, &g, &h);
-  mul_narrow(&t3, &e, &h);
-
-  mul_narrow_const(&result->dt, &t3, D);
-}
-
 void extended_readd_readd_narrow(
   extended_pt_readd_narrow_t *result,
   const extended_pt_narrow_t * __restrict x1,
@@ -545,57 +464,6 @@ void extended_readd_readd_narrow(
   mul_narrow(&t3, &e, &h);
 
   mul_narrow_const(&result->dt, &t3, D);
-}
-
-void extended_readd_minus_plus_affine(
-  extended_pt_readd_narrow_t *result_minus,
-  extended_pt_readd_narrow_t *result_plus,
-  const extended_pt_narrow_t * __restrict x1,
-  const extended_affine_pt_readd_narrow_t * __restrict x2) {
-
-  residue_narrow_t x1_plus_y1;
-  residue_narrow_t x2_plus_y2;
-  residue_narrow_t y2_minus_x2;
-  residue_narrow_t a, b, c, e_minus, e_plus, e_temp, f, g, h_minus, h_plus;
-  residue_narrow_t t3_minus, t3_plus;
-
-  mul_narrow(&a, &x1->x, &x2->x);
-  mul_narrow(&b, &x1->y, &x2->y);
-  mul_narrow(&c, &x1->t, &x2->dt);
-  // d = z1
-  add_narrow(&x1_plus_y1, &x1->x, &x1->y);
-  add_narrow(&x2_plus_y2, &x2->x, &x2->y);
-  sub_narrow(&y2_minus_x2, &x2->y, &x2->x);
-
-  mul_narrow(&e_minus, &x1_plus_y1, &y2_minus_x2);
-  add_narrow(&e_temp, &e_minus, &a);
-  sub_narrow(&e_minus, &e_temp, &b);
-
-  mul_narrow(&e_plus, &x1_plus_y1, &x2_plus_y2);
-  sub_narrow(&e_temp, &e_plus, &a);
-  sub_narrow(&e_plus, &e_temp, &b);
-
-  sub_narrow(&f, &x1->z, &c);
-  add_narrow(&g, &x1->z, &c);
-
-  add_narrow(&h_minus, &b, &a);
-  sub_narrow(&h_plus, &b, &a);
-
-  // C is plus or minus, but we compute both D+C and D-C. Use the alternate one
-  // when computing result_minus. Hence why f and g are switched below.
-  mul_narrow(&result_minus->x, &e_minus, &g);
-  mul_narrow(&result_minus->z, &f, &g);  // Copy
-  mul_narrow(&result_minus->y, &f, &h_minus);
-  mul_narrow(&t3_minus, &e_minus, &h_minus);
-
-  mul_narrow_const(&result_minus->dt, &t3_minus, D);
-
-  mul_narrow(&result_plus->x, &e_plus, &f);
-  copy_narrow(&result_plus->z, &result_minus->z);
-  mul_narrow(&result_plus->y, &g, &h_plus);
-  mul_narrow(&t3_plus, &e_plus, &h_plus);
-
-  mul_narrow_const(&result_plus->dt, &t3_plus, D);
 }
 
 void readd_to_projective(
@@ -633,17 +501,11 @@ void scalar_multiply(
   const int TABLE_SIZE = 16;
   extended_pt_readd_narrow_t table[TABLE_SIZE];
 
-  extended_affine_pt_readd_narrow_t x_ext;
-  affine_to_affine_readd_narrow(&x_ext, x);
   extended_pt_narrow_t x2;
   affine_double_extended(&x2, x);
-
-  affine_readd_to_readd_narrow(&table[0], &x_ext);
-
-  extended_readd_affine_narrow_extended_readd(&table[1], &x2, &x_ext);
-  for (int i = 2; i < TABLE_SIZE; i+=2) {
-    extended_readd_double_extended(&x2, &table[i >> 1]);
-    extended_readd_minus_plus_affine(&table[i], &table[i+1], &x2, &x_ext);
+  affine_to_readd_narrow(&table[0], x);
+  for (int i = 1; i < TABLE_SIZE; ++i) {
+    extended_readd_readd_narrow(&table[i], &x2, &table[i-1]);
   }
 
   int i;
@@ -707,17 +569,11 @@ void scalar_multiply_unsafe(
   const int TABLE_SIZE = 16;
   extended_pt_readd_narrow_t table[TABLE_SIZE];
 
-  extended_affine_pt_readd_narrow_t x_ext;
-  affine_to_affine_readd_narrow(&x_ext, x);
   extended_pt_narrow_t x2;
   affine_double_extended(&x2, x);
-
-  affine_readd_to_readd_narrow(&table[0], &x_ext);
-
-  extended_readd_affine_narrow_extended_readd(&table[1], &x2, &x_ext);
-  for (int i = 2; i < TABLE_SIZE; i+=2) {
-    extended_readd_double_extended(&x2, &table[i >> 1]);
-    extended_readd_minus_plus_affine(&table[i], &table[i+1], &x2, &x_ext);
+  affine_to_readd_narrow(&table[0], x);
+  for (int i = 1; i < TABLE_SIZE; ++i) {
+    extended_readd_readd_narrow(&table[i], &x2, &table[i-1]);
   }
 
   int i;

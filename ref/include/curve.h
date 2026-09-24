@@ -79,17 +79,9 @@ void affine_to_readd_narrow(
   extended_pt_readd_narrow_t *result,
   const affine_pt_narrow_t * __restrict x);
 
-void affine_readd_to_readd_narrow(
-  extended_pt_readd_narrow_t *result,
-  const extended_affine_pt_readd_narrow_t * __restrict x);
-
 void extended_to_readd_narrow_neg(
   extended_pt_readd_narrow_t *result,
   const extended_pt_narrow_t * __restrict x);
-
-void affine_to_affine_readd_narrow(
-  extended_affine_pt_readd_narrow_t *result,
-  const affine_pt_narrow_t * __restrict x);
 
 void projective_to_extended_narrow(
   extended_pt_narrow_t *result, projective_pt_narrow_t * __restrict x);
@@ -149,11 +141,6 @@ void extended_readd_affine_narrow_extended(
   extended_pt_narrow_t *result, const extended_pt_narrow_t * __restrict x,
   const extended_affine_pt_readd_narrow_t * __restrict y);
 
-void extended_readd_affine_narrow_extended_readd(
-  extended_pt_readd_narrow_t *result,
-  const extended_pt_narrow_t * __restrict x,
-  const extended_affine_pt_readd_narrow_t * __restrict y);
-
 void extended_add_extended(
   extended_pt_narrow_t *result, const extended_pt_narrow_t * __restrict x,
   const extended_pt_narrow_t * __restrict y);
@@ -162,13 +149,6 @@ void extended_readd_readd_narrow(
   extended_pt_readd_narrow_t *result,
   const extended_pt_narrow_t * __restrict x,
   const extended_pt_readd_narrow_t * __restrict y);
-
-// Compute x -+ y by re-using intermediate values.
-void extended_readd_minus_plus_affine(
-  extended_pt_readd_narrow_t *result_minus,
-  extended_pt_readd_narrow_t *result_plus,
-  const extended_pt_narrow_t * __restrict x1,
-  const extended_affine_pt_readd_narrow_t * __restrict x2);
 
 void extended_readd_narrow_extended(
   extended_pt_narrow_t *result,
