@@ -20,4 +20,6 @@ int verify(
 
 void encode_sig(uint8_t *result, const signature_t *sig);
 void decode_sig(signature_t *result, const uint8_t *encoded_sig);
+
+#include "sign.c"
 #endif
