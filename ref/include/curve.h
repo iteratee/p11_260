@@ -83,10 +83,6 @@ void extended_to_readd_narrow_neg(
   extended_pt_readd_narrow_t *result,
   const extended_pt_narrow_t * __restrict x);
 
-void affine_to_readd_narrow(
-  extended_pt_readd_narrow_t *result,
-  const affine_pt_narrow_t * __restrict x);
-
 void projective_to_extended_narrow(
   extended_pt_narrow_t *result, projective_pt_narrow_t * __restrict x);
 
