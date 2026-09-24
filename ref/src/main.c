@@ -1,3 +1,5 @@
+#define _DEFAULT_SOURCE
+#define __USE_MISC
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
