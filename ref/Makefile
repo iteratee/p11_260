@@ -2,7 +2,7 @@
 # The name of the executable to be created
 BIN_NAME := p11_260_test
 # Compiler used
-CC = clang-10
+CC = clang-21
 # Extension of source files used in the project
 SRC_EXT = c
 # Path to the source directory, relative to the makefile
